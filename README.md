@@ -68,24 +68,23 @@ diary/
 # 1. Install dependencies
 pnpm install
 
-# 2. Start infrastructure
-cd infra && docker compose up -d && cd ..
-
-# 3. Copy environment files
+# 2. Copy environment files (first time only)
 cp packages/database/.env.example packages/database/.env
 cp apps/diary-api/.env.example apps/diary-api/.env
 cp apps/diary-worker/.env.example apps/diary-worker/.env
 cp apps/diary-web/.env.example apps/diary-web/.env.local
 
-# 4. Run database migration
-pnpm db:migrate
-
-# 5. Start all services in parallel
-pnpm dev
+# 3. Start everything (Docker + DB migration + all services)
+pnpm start
 ```
 
+`pnpm start` does it all in one command:
+1. Starts Docker containers (Postgres, NATS, pgAdmin)
+2. Runs any pending database migrations
+3. Starts all dev services
+
 This starts:
-- **diary-web** on `http://localhost:4280/diary`
+- **diary-web** on `http://localhost:4280`
 - **diary-api** on `http://localhost:4281`
 - **diary-worker** polling outbox and publishing to NATS
 
@@ -242,7 +241,7 @@ Configuration (env vars):
 
 The diary-web app is designed to be mounted inside a shell application:
 
-- **basePath**: Configurable via `NEXT_PUBLIC_DIARY_BASE_PATH` (default: `/diary`)
+- **basePath**: Configurable via `NEXT_PUBLIC_DIARY_BASE_PATH` (empty by default for standalone dev; set to `/diary` when mounted in a shell app)
 - **API URL**: Configurable via `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:4281`)
 - **Scoped styles**: Uses Tailwind CSS v4 with design tokens from `@madecki/ui`
 - **No global CSS pollution**: All custom styles are scoped to component classes

@@ -7,6 +7,8 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "start": "docker compose -f infra/docker-compose.yml up -d && pnpm db:migrate && pnpm dev",
+    "predev": "lsof -ti :4280 -ti :4281 2>/dev/null | xargs kill -9 2>/dev/null || true",
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
