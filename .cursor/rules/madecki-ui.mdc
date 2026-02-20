@@ -1,0 +1,42 @@
+---
+description: Use @madecki/ui component library for all UI
+alwaysApply: true
+---
+
+# @madecki/ui Component Library
+
+This project uses @madecki/ui for UI components.
+
+## IMPORTANT: Read Library Documentation
+
+Before creating ANY UI component, read the library's context file:
+
+**Read this file first:** `node_modules/@madecki/ui/llm-context.md`
+
+This file contains:
+- All available components and their props
+- Design tokens (colors, spacing, typography)
+- Usage patterns and examples
+- Rules for consistent usage
+
+## Quick Rules
+
+1. ALWAYS import from "@madecki/ui", never create custom versions of library components
+2. ALWAYS use design tokens from the library (e.g., `bg-primary`, `p-5`, `text-lg`)
+3. NEVER use arbitrary Tailwind values like `bg-[#123456]` or `p-[17px]`
+4. Check `node_modules/@madecki/ui/llm-context.md` for the full component list
+
+## When Unsure
+
+If you're not sure what components are available or how to use them:
+
+1. Read `node_modules/@madecki/ui/llm-context.md` for quick reference
+2. Read `node_modules/@madecki/ui/README.md` for full documentation
+3. Check TypeScript types for prop definitions
+
+## Import Pattern
+
+\`\`\`tsx
+import { Container, Stack, Heading, Text, Button } from "@madecki/ui";
+import { Heart, Info } from "@madecki/ui";
+\`\`\`

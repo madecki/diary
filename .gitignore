@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.prisma/
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo

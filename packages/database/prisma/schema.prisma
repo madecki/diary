@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EntryType {
+  checkin
+  short_note
+}
+
+enum TimeOfDay {
+  morning
+  evening
+}
+
+model Entry {
+  id          String     @id
+  type        EntryType
+  title       String?
+  contentJson Json
+  plainText   String
+  wordCount   Int
+  mood        Int?
+  emotions    String[]   @default([])
+  triggers    String[]   @default([])
+  timeOfDay   TimeOfDay?
+  localDate   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([localDate])
+  @@map("entries")
+}
+
+model OutboxEvent {
+  globalSequence       BigInt    @id @default(autoincrement())
+  eventId              String    @unique
+  eventName            String
+  eventVersion         Int
+  occurredAt           DateTime
+  aggregateId          String
+  aggregateType        String
+  aggregateVersion     Int
+  actorUserId          String
+  payload              Json
+  publishedAt          DateTime?
+  publishAttempts      Int       @default(0)
+  lastPublishError     String?
+  lastPublishAttemptAt DateTime?
+
+  @@index([aggregateId, aggregateVersion])
+  @@index([publishedAt, globalSequence])
+  @@index([eventName, occurredAt])
+  @@map("outbox_events")
+}
