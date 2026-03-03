@@ -12,45 +12,95 @@ import {
 } from "../index.js";
 
 describe("CreateCheckinSchema", () => {
-  const valid = {
+  const validMorning = {
+    checkInType: "morning" as const,
     mood: 7,
-    contentJson: { type: "doc", content: [] },
-    plainText: "Feeling good today",
-    wordCount: 3,
     emotions: ["happy"],
     triggers: ["exercise"],
+    whatImGratefulFor: ["Good health", "", ""],
+    whatWouldMakeDayGreat: ["Stay focused", "", ""],
+    dailyAffirmation: "I am capable",
   };
 
-  it("accepts valid checkin", () => {
-    expect(CreateCheckinSchema.parse(valid)).toMatchObject(valid);
+  const validEvening = {
+    checkInType: "evening" as const,
+    mood: 6,
+    emotions: ["calm"],
+    triggers: ["work"],
+    highlightsOfTheDay: ["Completed the task", "", ""],
+    whatDidILearnToday: "Patience is key",
+  };
+
+  it("accepts valid morning check-in", () => {
+    const result = CreateCheckinSchema.parse(validMorning);
+    expect(result.checkInType).toBe("morning");
   });
 
-  it("accepts optional timeOfDay and localDate", () => {
-    const withOptionals = { ...valid, timeOfDay: "morning", localDate: "2026-02-20" };
-    expect(CreateCheckinSchema.parse(withOptionals).timeOfDay).toBe("morning");
+  it("accepts valid evening check-in", () => {
+    const result = CreateCheckinSchema.parse(validEvening);
+    expect(result.checkInType).toBe("evening");
   });
 
-  it("rejects mood outside 1-10", () => {
-    expect(() => CreateCheckinSchema.parse({ ...valid, mood: 0 })).toThrow();
-    expect(() => CreateCheckinSchema.parse({ ...valid, mood: 11 })).toThrow();
+  it("accepts optional localDate", () => {
+    const result = CreateCheckinSchema.parse({ ...validMorning, localDate: "2026-02-20" });
+    expect(result.localDate).toBe("2026-02-20");
+  });
+
+  it("rejects when all three gratitude items are empty", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({
+        ...validMorning,
+        whatImGratefulFor: ["", "", ""],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects when dailyAffirmation is blank", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({ ...validMorning, dailyAffirmation: "   " }),
+    ).toThrow();
+  });
+
+  it("rejects missing mood", () => {
+    const { mood: _mood, ...noMood } = validMorning;
+    expect(() => CreateCheckinSchema.parse(noMood)).toThrow();
   });
 
   it("rejects empty emotions array", () => {
-    expect(() => CreateCheckinSchema.parse({ ...valid, emotions: [] })).toThrow();
+    expect(() => CreateCheckinSchema.parse({ ...validMorning, emotions: [] })).toThrow();
   });
 
-  it("rejects more than 5 triggers", () => {
+  it("rejects mood out of range", () => {
+    expect(() => CreateCheckinSchema.parse({ ...validMorning, mood: 11 })).toThrow();
+  });
+
+  it("rejects when all three highlights are empty for evening", () => {
     expect(() =>
       CreateCheckinSchema.parse({
-        ...valid,
-        triggers: ["a", "b", "c", "d", "e", "f"],
+        ...validEvening,
+        highlightsOfTheDay: ["", "", ""],
       }),
+    ).toThrow();
+  });
+
+  it("rejects when whatDidILearnToday is blank", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({ ...validEvening, whatDidILearnToday: "  " }),
     ).toThrow();
   });
 
   it("rejects invalid localDate format", () => {
     expect(() =>
-      CreateCheckinSchema.parse({ ...valid, localDate: "20-02-2026" }),
+      CreateCheckinSchema.parse({ ...validMorning, localDate: "20-02-2026" }),
+    ).toThrow();
+  });
+
+  it("rejects array of wrong length", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({
+        ...validMorning,
+        whatImGratefulFor: ["only one item"],
+      }),
     ).toThrow();
   });
 });
@@ -79,19 +129,37 @@ describe("CreateShortNoteSchema", () => {
 });
 
 describe("UpdateCheckinSchema", () => {
-  it("accepts partial update", () => {
-    const result = UpdateCheckinSchema.parse({ mood: 5 });
-    expect(result.mood).toBe(5);
-    expect(result.contentJson).toBeUndefined();
+  it("accepts partial morning update with only affirmation", () => {
+    const result = UpdateCheckinSchema.parse({
+      checkInType: "morning",
+      dailyAffirmation: "I am great",
+    });
+    expect(result.checkInType).toBe("morning");
+    if (result.checkInType === "morning") {
+      expect(result.dailyAffirmation).toBe("I am great");
+      expect(result.whatImGratefulFor).toBeUndefined();
+    }
   });
 
-  it("accepts empty object", () => {
-    expect(UpdateCheckinSchema.parse({})).toEqual({});
+  it("accepts updating mood and emotions", () => {
+    const result = UpdateCheckinSchema.parse({
+      checkInType: "morning",
+      mood: 9,
+      emotions: ["grateful"],
+    });
+    expect(result.mood).toBe(9);
   });
 
-  it("allows nullable timeOfDay", () => {
-    const result = UpdateCheckinSchema.parse({ timeOfDay: null });
-    expect(result.timeOfDay).toBeNull();
+  it("accepts partial evening update", () => {
+    const result = UpdateCheckinSchema.parse({
+      checkInType: "evening",
+      whatDidILearnToday: "Consistency matters",
+    });
+    expect(result.checkInType).toBe("evening");
+  });
+
+  it("rejects missing checkInType", () => {
+    expect(() => UpdateCheckinSchema.parse({ dailyAffirmation: "test" })).toThrow();
   });
 });
 
@@ -141,13 +209,16 @@ describe("DiaryEventPayloadSchema", () => {
     data: {
       entrySnapshot: { id: "01ARZ3NDEKTSV4RRFFQ69G5FAX", type: "checkin" },
       derived: {
-        plainText: "Test",
-        wordCount: 1,
         localDate: "2026-02-20",
-        timeOfDay: null,
+        checkInType: "morning",
         mood: 7,
         emotions: ["happy"],
-        triggers: ["work"],
+        triggers: ["exercise"],
+        whatImGratefulFor: ["Good health", "", ""],
+        whatWouldMakeDayGreat: null,
+        dailyAffirmation: "I am ready",
+        highlightsOfTheDay: null,
+        whatDidILearnToday: null,
       },
       metadata: { source: "diary", schema: "diary.event.v1" },
     },
@@ -207,18 +278,23 @@ describe("ReplayBodySchema", () => {
 });
 
 describe("EntryResponseSchema", () => {
-  it("accepts a checkin response", () => {
+  it("accepts a morning check-in response", () => {
     const entry = {
       id: "01ARZ",
       type: "checkin",
-      contentJson: {},
-      plainText: "test",
-      wordCount: 1,
-      mood: 5,
-      emotions: ["calm"],
-      triggers: ["meditation"],
-      timeOfDay: "morning",
+      mood: 8,
+      emotions: ["happy"],
+      triggers: ["exercise"],
+      checkInType: "morning",
+      whatImGratefulFor: ["Good health", "", ""],
+      whatWouldMakeDayGreat: ["Stay focused", "", ""],
+      dailyAffirmation: "I am capable",
+      highlightsOfTheDay: [],
+      whatDidILearnToday: null,
       title: null,
+      contentJson: null,
+      plainText: null,
+      wordCount: null,
       localDate: "2026-02-20",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
@@ -230,13 +306,18 @@ describe("EntryResponseSchema", () => {
     const entry = {
       id: "01ARZ",
       type: "short_note",
-      contentJson: {},
-      plainText: "test",
-      wordCount: 1,
       mood: null,
       emotions: [],
       triggers: [],
-      timeOfDay: null,
+      checkInType: null,
+      whatImGratefulFor: [],
+      whatWouldMakeDayGreat: [],
+      dailyAffirmation: null,
+      highlightsOfTheDay: [],
+      whatDidILearnToday: null,
+      contentJson: {},
+      plainText: "test",
+      wordCount: 1,
       title: "My Note",
       localDate: "2026-02-20",
       createdAt: "2026-02-20T10:00:00.000Z",

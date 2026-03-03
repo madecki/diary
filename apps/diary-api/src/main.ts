@@ -15,7 +15,10 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new ZodExceptionFilter());
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? "*" });
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ?? "*",
+    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+  });
 
   const port = Number(process.env.PORT ?? 4281);
   await app.listen(port, "0.0.0.0");

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Inject } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Inject, HttpCode } from "@nestjs/common";
 import {
   CreateCheckinSchema,
   CreateShortNoteSchema,
@@ -36,5 +36,11 @@ export class EntriesController {
   @Patch(":id")
   updateEntry(@Param("id") id: string, @Body() body: unknown) {
     return this.entries.updateEntry(id, body);
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  deleteEntry(@Param("id") id: string) {
+    return this.entries.deleteEntry(id);
   }
 }

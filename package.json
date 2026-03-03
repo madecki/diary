@@ -7,7 +7,9 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "start": "docker compose -f infra/docker-compose.yml up -d && pnpm db:migrate && pnpm dev",
+    "start": "docker compose -f infra/docker-compose.yml up -d && pnpm db:migrate:deploy && pnpm dev",
+    "e2e": "pnpm --filter diary-e2e e2e",
+    "e2e:ui": "pnpm --filter diary-e2e e2e:ui",
     "predev": "lsof -ti :4280 -ti :4281 2>/dev/null | xargs kill -9 2>/dev/null || true",
     "dev": "turbo dev",
     "build": "turbo build",
@@ -17,7 +19,10 @@
     "typecheck": "turbo typecheck",
     "db:generate": "pnpm --filter @diary/database db:generate",
     "db:migrate": "pnpm --filter @diary/database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @diary/database db:migrate:deploy",
+    "db:seed": "pnpm --filter @diary/database db:seed",
     "db:studio": "pnpm --filter @diary/database db:studio",
+    "db:backup": "pnpm --filter @diary/database db:backup",
     "clean": "turbo clean"
   },
   "pnpm": {

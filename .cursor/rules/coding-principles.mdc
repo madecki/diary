@@ -1,0 +1,68 @@
+---
+alwaysApply: true
+---
+
+# Context
+
+This is a full stack, mono repo **personal diary app** — used by a single user locally. It runs on Next.js + TypeScript + Tailwind (FE) and NestJS + Fastify + PostgreSQL + NATS JetStream (BE). There is also a `diary-e2e` package that runs Playwright tests end to end.
+
+**Packages in the monorepo:**
+- `apps/diary-web` — Next.js frontend (port 4280)
+- `apps/diary-api` — NestJS API (port 4281)
+- `apps/diary-worker` — background worker: publishes outbox events to NATS and writes Markdown backups
+- `apps/diary-e2e` — Playwright E2E tests
+- `packages/database` — Prisma schema, migrations, seed, backup script
+- `packages/shared` — shared Zod schemas, types, constants
+
+**Start the app:** `pnpm start` (runs docker compose + migrate deploy + dev servers)
+
+# Architecture: Outbox Pattern
+
+Every mutation in `diary-api/entries.service.ts` writes atomically to both the `entries` table and an `outbox_events` row in a single Prisma transaction. The `diary-worker` polls `outbox_events` every 500ms, publishes events to NATS JetStream (`DIARY_EVENTS` stream, subjects: `diary.entry.created`, `diary.entry.updated`, `diary.entry.deleted`), and **also writes Markdown backup files** after each successful publish. This is the only event flow — there is no in-process event emitter.
+
+# Database
+
+- PostgreSQL via Docker Compose (`localhost:54320`). Data is stored in a named Docker volume (`postgres_data`) — it persists across `docker compose down` but is destroyed by `docker compose down -v`.
+- Prisma is used for schema and migrations.
+- **NEVER run `prisma migrate dev` automatically** — it is a dev-only command that can reset the database. The start script uses `prisma migrate deploy` instead.
+- To create a new migration: run `pnpm db:migrate` manually, review the generated SQL before applying.
+- Migrations that contain destructive SQL (`DROP`, `TRUNCATE`, `ALTER ... DROP COLUMN`) will permanently delete data — always review them before applying.
+
+# Data Safety Rules
+
+This is a personal diary — data loss is unacceptable. Follow these rules:
+1. **Never use `prisma migrate dev` in automated scripts** — only `prisma migrate deploy`.
+2. **Never add `TRUNCATE`, `DROP TABLE`, or similar to migrations without explicit user confirmation** and a clear comment explaining the data loss.
+3. When a schema change is incompatible with existing data, raise it with the user first — do not silently blow up data.
+4. The `diary-worker` writes automatic Markdown backups to `diary-backups/YYYY/MM/YYYY-MM-DD_[type]_[id].md` after every entry create/update. Deleted entries are moved to `diary-backups/_deleted/` — never deleted from disk.
+5. To export all current entries to Markdown: `pnpm db:backup`.
+
+# Entry Types
+
+The `entries` table stores two types in a single flat model:
+- `short_note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`
+- `checkin` — has `checkInType` (morning/evening), `mood` (1-10), `emotions[]`, `triggers[]`, and type-specific fields (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation` for morning; `highlightsOfTheDay`, `whatDidILearnToday` for evening)
+
+Fields not relevant to a type are `null` or `[]`.
+
+# Shared Package
+
+Zod schemas for API I/O, event payloads, and constants live in `packages/shared`. Always import from `@diary/shared`, never duplicate schemas. After changing shared types, rebuild: `pnpm --filter @diary/shared build`.
+
+# UI Components
+
+The project uses `@madecki/ui` for all UI components. **Before creating any UI component, read `node_modules/@madecki/ui/llm-context.md`** for available components, design tokens, and usage rules. Always import from `@madecki/ui`, never create custom versions of library components. Never use arbitrary Tailwind values — use design tokens from the library.
+
+# Approach
+
+You are a senior software engineer. Be pragmatic, do not overengineer. Check existing coding approaches before inventing your own. Keep code short and simple. Follow the patterns already established in the codebase.
+
+# Testing
+
+When you implement any new features or edit existing ones, ALWAYS review existing E2E tests in `apps/diary-e2e`. If existing tests are outdated due to your changes — update them. If you added something not yet tested — add tests.
+
+When writing or editing tests:
+- Run them and iterate until they pass and truly reflect app behavior.
+- Tests guard the app — write them to catch real regressions, not just to make the suite green.
+- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries` and `outbox_events`). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
+- When testing async side effects (backup files, NATS events), poll with a reasonable timeout (10–15s) rather than using fixed sleeps.

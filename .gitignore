@@ -12,3 +12,11 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Diary backups (personal data, not to be committed)
+diary-backups/
+
+# Playwright
+playwright-report/
+test-results/
+.e2e-state.json

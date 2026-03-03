@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 export { PrismaClient };
 export { PrismaPg };
-export type { Entry, OutboxEvent, EntryType, TimeOfDay } from "@prisma/client";
+export type { Entry, OutboxEvent, EntryType, CheckInType } from "@prisma/client";
 
 let instance: PrismaClient | undefined;
 

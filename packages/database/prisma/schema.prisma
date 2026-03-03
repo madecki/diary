@@ -11,30 +11,63 @@ enum EntryType {
   short_note
 }
 
-enum TimeOfDay {
+enum CheckInType {
   morning
   evening
 }
 
+enum RefType {
+  difficult
+  neutral
+  pleasant
+}
+
 model Entry {
-  id          String     @id
+  id          String      @id
   type        EntryType
-  title       String?
-  contentJson Json
-  plainText   String
-  wordCount   Int
-  mood        Int?
-  emotions    String[]   @default([])
-  triggers    String[]   @default([])
-  timeOfDay   TimeOfDay?
   localDate   String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Short note fields (null for check-ins)
+  title       String?
+  contentJson Json?
+  plainText   String?
+  wordCount   Int?
+
+  // Check-in fields (null / empty for short notes)
+  mood                  Int?
+  emotions              String[]     @default([])
+  triggers              String[]     @default([])
+  checkInType           CheckInType?
+  whatImGratefulFor     String[]     @default([])
+  whatWouldMakeDayGreat String[]     @default([])
+  dailyAffirmation      String?
+  highlightsOfTheDay    String[]     @default([])
+  whatDidILearnToday    String?
 
   @@index([type])
   @@index([createdAt])
   @@index([localDate])
   @@map("entries")
+}
+
+model Emotion {
+  id        String   @id
+  label     String   @unique
+  type      RefType
+  createdAt DateTime @default(now())
+
+  @@map("emotions")
+}
+
+model Trigger {
+  id        String   @id
+  label     String   @unique
+  type      RefType
+  createdAt DateTime @default(now())
+
+  @@map("triggers")
 }
 
 model OutboxEvent {

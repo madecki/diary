@@ -29,19 +29,28 @@ export class EntriesService {
     const localDate = input.localDate ?? todayLocal();
 
     return this.prisma.$transaction(async (tx) => {
+      const typeSpecificData =
+        input.checkInType === "morning"
+          ? {
+              whatImGratefulFor: input.whatImGratefulFor,
+              whatWouldMakeDayGreat: input.whatWouldMakeDayGreat,
+              dailyAffirmation: input.dailyAffirmation,
+            }
+          : {
+              highlightsOfTheDay: input.highlightsOfTheDay,
+              whatDidILearnToday: input.whatDidILearnToday,
+            };
+
       const entry = await tx.entry.create({
         data: {
           id,
           type: "checkin",
-          contentJson: input.contentJson as Prisma.InputJsonValue,
-          plainText: input.plainText,
-          wordCount: input.wordCount,
           mood: input.mood,
           emotions: input.emotions,
           triggers: input.triggers,
-          timeOfDay: input.timeOfDay ?? null,
-          title: null,
+          checkInType: input.checkInType,
           localDate,
+          ...typeSpecificData,
         },
       });
 
@@ -63,10 +72,6 @@ export class EntriesService {
           plainText: input.plainText,
           wordCount: input.wordCount,
           title: input.title ?? null,
-          mood: null,
-          emotions: [],
-          triggers: [],
-          timeOfDay: null,
           localDate,
         },
       });
@@ -103,15 +108,64 @@ export class EntriesService {
     };
   }
 
+  async deleteEntry(id: string): Promise<void> {
+    const existing = await this.prisma.entry.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Entry ${id} not found`);
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.writeOutboxEvent(tx, existing, "diary.entry.deleted");
+      await tx.entry.delete({ where: { id } });
+    });
+  }
+
   async updateEntry(id: string, body: unknown): Promise<EntryResponse> {
     const existing = await this.prisma.entry.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Entry ${id} not found`);
 
-    const data =
-      existing.type === "checkin"
-        ? UpdateCheckinSchema.parse(body)
-        : UpdateShortNoteSchema.parse(body);
+    if (existing.type === "checkin") {
+      const data = UpdateCheckinSchema.parse(body);
 
+      const typeSpecificData =
+        data.checkInType === "morning"
+          ? {
+              ...(data.whatImGratefulFor !== undefined && {
+                whatImGratefulFor: data.whatImGratefulFor,
+              }),
+              ...(data.whatWouldMakeDayGreat !== undefined && {
+                whatWouldMakeDayGreat: data.whatWouldMakeDayGreat,
+              }),
+              ...(data.dailyAffirmation !== undefined && {
+                dailyAffirmation: data.dailyAffirmation,
+              }),
+            }
+          : {
+              ...(data.highlightsOfTheDay !== undefined && {
+                highlightsOfTheDay: data.highlightsOfTheDay,
+              }),
+              ...(data.whatDidILearnToday !== undefined && {
+                whatDidILearnToday: data.whatDidILearnToday,
+              }),
+            };
+
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.entry.update({
+          where: { id },
+          data: {
+            checkInType: data.checkInType,
+            ...(data.mood !== undefined && { mood: data.mood }),
+            ...(data.emotions !== undefined && { emotions: data.emotions }),
+            ...(data.triggers !== undefined && { triggers: data.triggers }),
+            ...(data.localDate && { localDate: data.localDate }),
+            ...typeSpecificData,
+          },
+        });
+
+        await this.writeOutboxEvent(tx, updated, "diary.entry.updated");
+        return toResponse(updated);
+      });
+    }
+
+    const data = UpdateShortNoteSchema.parse(body);
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.entry.update({
         where: { id },
@@ -169,6 +223,7 @@ export class EntriesService {
         entrySnapshot: {
           id: entry.id,
           type: entry.type,
+          localDate: entry.localDate,
           title: entry.title,
           contentJson: entry.contentJson,
           plainText: entry.plainText,
@@ -176,19 +231,33 @@ export class EntriesService {
           mood: entry.mood,
           emotions: entry.emotions,
           triggers: entry.triggers,
-          timeOfDay: entry.timeOfDay,
-          localDate: entry.localDate,
+          checkInType: entry.checkInType,
+          whatImGratefulFor: entry.whatImGratefulFor,
+          whatWouldMakeDayGreat: entry.whatWouldMakeDayGreat,
+          dailyAffirmation: entry.dailyAffirmation,
+          highlightsOfTheDay: entry.highlightsOfTheDay,
+          whatDidILearnToday: entry.whatDidILearnToday,
           createdAt: entry.createdAt.toISOString(),
           updatedAt: entry.updatedAt.toISOString(),
         },
         derived: {
-          plainText: entry.plainText,
-          wordCount: entry.wordCount,
           localDate: entry.localDate,
-          timeOfDay: entry.timeOfDay ?? null,
+          checkInType: entry.checkInType ?? null,
           mood: entry.mood ?? null,
           emotions: entry.emotions.length > 0 ? entry.emotions : null,
           triggers: entry.triggers.length > 0 ? entry.triggers : null,
+          whatImGratefulFor:
+            entry.whatImGratefulFor.length > 0 ? entry.whatImGratefulFor : null,
+          whatWouldMakeDayGreat:
+            entry.whatWouldMakeDayGreat.length > 0
+              ? entry.whatWouldMakeDayGreat
+              : null,
+          dailyAffirmation: entry.dailyAffirmation ?? null,
+          highlightsOfTheDay:
+            entry.highlightsOfTheDay.length > 0
+              ? entry.highlightsOfTheDay
+              : null,
+          whatDidILearnToday: entry.whatDidILearnToday ?? null,
         },
         metadata: { source: EVENT_SOURCE, schema: EVENT_SCHEMA },
       },
@@ -211,16 +280,21 @@ function toResponse(entry: Entry): EntryResponse {
   return {
     id: entry.id,
     type: entry.type,
+    localDate: entry.localDate,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString(),
+    title: entry.title,
     contentJson: entry.contentJson,
     plainText: entry.plainText,
     wordCount: entry.wordCount,
     mood: entry.mood,
     emotions: entry.emotions,
     triggers: entry.triggers,
-    timeOfDay: entry.timeOfDay,
-    title: entry.title,
-    localDate: entry.localDate,
-    createdAt: entry.createdAt.toISOString(),
-    updatedAt: entry.updatedAt.toISOString(),
+    checkInType: entry.checkInType,
+    whatImGratefulFor: entry.whatImGratefulFor,
+    whatWouldMakeDayGreat: entry.whatWouldMakeDayGreat,
+    dailyAffirmation: entry.dailyAffirmation,
+    highlightsOfTheDay: entry.highlightsOfTheDay,
+    whatDidILearnToday: entry.whatDidILearnToday,
   };
 }

@@ -8,8 +8,9 @@ import {
   StringCodec,
   headers,
 } from "nats";
-import { NATS_STREAM_NAME, NATS_SUBJECTS } from "@diary/shared";
+import { NATS_STREAM_NAME, NATS_SUBJECTS, DiaryEventPayloadSchema } from "@diary/shared";
 import { config } from "./config.js";
+import { MarkdownBackup } from "./backup.js";
 
 export class OutboxPublisher {
   private prisma: PrismaClient;
@@ -17,6 +18,7 @@ export class OutboxPublisher {
   private js!: JetStreamClient;
   private running = false;
   private sc = StringCodec();
+  private backup = new MarkdownBackup();
 
   constructor() {
     const connectionString = process.env.DATABASE_URL;
@@ -54,18 +56,30 @@ export class OutboxPublisher {
 
   private async ensureStream(): Promise<void> {
     const jsm = await this.nc.jetstreamManager();
+    const streamConfig = {
+      name: NATS_STREAM_NAME,
+      subjects: [...NATS_SUBJECTS],
+      retention: "limits" as any,
+      storage: "file" as any,
+      max_bytes: -1,
+      duplicate_window: 120_000_000_000,
+    };
     try {
-      await jsm.streams.info(NATS_STREAM_NAME);
-      console.log(`Stream ${NATS_STREAM_NAME} exists`);
+      const info = await jsm.streams.info(NATS_STREAM_NAME);
+      const existing = info.config.subjects ?? [];
+      const desired = streamConfig.subjects;
+      const needsUpdate = desired.some((s) => !existing.includes(s));
+      if (needsUpdate) {
+        await jsm.streams.update(NATS_STREAM_NAME, {
+          ...info.config,
+          subjects: desired,
+        });
+        console.log(`Stream ${NATS_STREAM_NAME} updated with subjects: ${desired.join(", ")}`);
+      } else {
+        console.log(`Stream ${NATS_STREAM_NAME} exists`);
+      }
     } catch {
-      await jsm.streams.add({
-        name: NATS_STREAM_NAME,
-        subjects: [...NATS_SUBJECTS],
-        retention: "limits" as any,
-        storage: "file" as any,
-        max_bytes: -1,
-        duplicate_window: 120_000_000_000,
-      });
+      await jsm.streams.add(streamConfig);
       console.log(`Stream ${NATS_STREAM_NAME} created`);
     }
   }
@@ -99,6 +113,10 @@ export class OutboxPublisher {
           where: { globalSequence: event.globalSequence },
           data: { publishedAt: new Date() },
         });
+        const parsed = DiaryEventPayloadSchema.safeParse(event.payload);
+        if (parsed.success) {
+          await this.backup.handleEvent(parsed.data);
+        }
         count++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

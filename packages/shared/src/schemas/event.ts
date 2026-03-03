@@ -3,6 +3,7 @@ import { z } from "zod";
 export const DiaryEventNameSchema = z.enum([
   "diary.entry.created",
   "diary.entry.updated",
+  "diary.entry.deleted",
 ]);
 export type DiaryEventName = z.infer<typeof DiaryEventNameSchema>;
 
@@ -10,13 +11,16 @@ export const AggregateTypeSchema = z.enum(["checkin", "short_note"]);
 export type AggregateType = z.infer<typeof AggregateTypeSchema>;
 
 export const DerivedDataSchema = z.object({
-  plainText: z.string(),
-  wordCount: z.number().int(),
   localDate: z.string(),
-  timeOfDay: z.enum(["morning", "evening"]).nullable(),
+  checkInType: z.enum(["morning", "evening"]).nullable(),
   mood: z.number().int().min(1).max(10).nullable(),
   emotions: z.array(z.string()).nullable(),
   triggers: z.array(z.string()).nullable(),
+  whatImGratefulFor: z.array(z.string()).nullable(),
+  whatWouldMakeDayGreat: z.array(z.string()).nullable(),
+  dailyAffirmation: z.string().nullable(),
+  highlightsOfTheDay: z.array(z.string()).nullable(),
+  whatDidILearnToday: z.string().nullable(),
 });
 export type DerivedData = z.infer<typeof DerivedDataSchema>;
 
