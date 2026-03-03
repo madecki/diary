@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node10"
+  },
+  "include": [
+    "playwright.config.ts",
+    "global-setup.ts",
+    "global-teardown.ts",
+    "db.ts",
+    "tests/**/*.ts"
+  ]
+}
