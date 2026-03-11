@@ -9,7 +9,6 @@ import {
   Heading,
   Text,
   Button,
-  GradientButton,
   Input,
   Tabs,
   Spinner,
@@ -28,7 +27,6 @@ import {
 } from "@/lib/api";
 
 const TYPE_TABS = [
-  { label: "All", value: "all" },
   { label: "Check-ins", value: "checkins" },
   { label: "Notes", value: "notes" },
 ];
@@ -60,12 +58,12 @@ export function EntriesPageContent({
   const pathname = usePathname();
 
   const urlView = searchParams.get("view");
-  const view: "all" | "checkins" | "notes" =
-    urlView === "notes" || urlView === "checkins" || urlView === "all" ? urlView : "all";
+  const view: "checkins" | "notes" =
+    urlView === "checkins" ? "checkins" : "notes";
   const folderFromUrl = normalizeFolderPath(searchParams.get("folder"));
 
   const setUrlState = useCallback(
-    (nextView: "all" | "checkins" | "notes", folder?: string | null) => {
+    (nextView: "checkins" | "notes", folder?: string | null) => {
       const next = new URLSearchParams(searchParams.toString());
       next.set("view", nextView);
       if (nextView === "notes" && folder) {
@@ -103,7 +101,7 @@ export function EntriesPageContent({
     let result =
       view === "notes"
         ? noteEntries
-        : entries.filter((e) => (view === "checkins" ? e.type === "checkin" : true));
+        : entries.filter((e) => e.type === "checkin");
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -148,6 +146,11 @@ export function EntriesPageContent({
     isActive: t.value === view,
   }));
 
+  const checkins = useMemo(
+    () => entries.filter((e) => e.type === "checkin"),
+    [entries],
+  );
+
   const breadcrumbSegments = (currentFolderPath ?? "")
     .split("/")
     .map((s) => s.trim())
@@ -158,35 +161,16 @@ export function EntriesPageContent({
       <Stack direction="vertical" gap="8">
         {/* Header */}
         <Stack direction="vertical" gap="5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <Stack direction="vertical" gap="2">
-              <Heading level={1} size="3xl" weight="bold">
-                My Diary
-              </Heading>
-              <Text color="muted" size="sm">
-                {view === "notes"
-                  ? `${filtered.length} ${filtered.length === 1 ? "note" : "notes"}`
-                  : `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}
-              </Text>
-            </Stack>
-
-            <Stack direction="horizontal" gap="3" wrap>
-              {view !== "notes" ? (
-                <Link href="/entries/new/checkin">
-                  <GradientButton size="md">New Check-in</GradientButton>
-                </Link>
-              ) : null}
-              <Link
-                href={
-                  folderFromUrl
-                    ? `/entries/new/note?folder=${encodeURIComponent(folderFromUrl)}`
-                    : "/entries/new/note"
-                }
-              >
-                <Button variant="info" size="md">New Note</Button>
-              </Link>
-            </Stack>
-          </div>
+          <Stack direction="vertical" gap="2">
+            <Heading level={1} size="3xl" weight="bold">
+              My Diary
+            </Heading>
+            <Text color="muted" size="sm">
+              {view === "notes"
+                ? `${filtered.length} ${filtered.length === 1 ? "note" : "notes"}`
+                : `${checkins.length} ${checkins.length === 1 ? "check-in" : "check-ins"}`}
+            </Text>
+          </Stack>
 
           {/* Search */}
           <Input
@@ -208,7 +192,7 @@ export function EntriesPageContent({
             key={`tabs-${view}`}
             tabs={tabs}
             onTabClick={(next) => {
-              if (next === "all" || next === "checkins" || next === "notes") {
+              if (next === "checkins" || next === "notes") {
                 setUrlState(next, next === "notes" ? currentFolderPath : null);
               }
             }}
@@ -246,13 +230,24 @@ export function EntriesPageContent({
                   })}
                 </div>
 
-                <Button
-                  variant="info"
-                  size="sm"
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  Create folder
-                </Button>
+                <Stack direction="horizontal" gap="2">
+                  <Link
+                    href={
+                      folderFromUrl
+                        ? `/entries/new/note?folder=${encodeURIComponent(folderFromUrl)}`
+                        : "/entries/new/note"
+                    }
+                  >
+                    <Button variant="success" size="sm">Add new</Button>
+                  </Link>
+                  <Button
+                    variant="info"
+                    size="sm"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    Create folder
+                  </Button>
+                </Stack>
               </div>
 
               {noteFolders.length > 0 && (
@@ -270,23 +265,28 @@ export function EntriesPageContent({
               )}
             </Stack>
           )}
+
+          {view === "checkins" && (
+            <div className="flex justify-end">
+              <Link href="/entries/new/checkin">
+                <Button variant="success" size="sm">Add new</Button>
+              </Link>
+            </div>
+          )}
         </Stack>
 
         {/* Entries list */}
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-5 py-16 text-center">
             <Text color="muted" size="lg">
-              {searchQuery || view !== "all"
+              {searchQuery
                 ? view === "notes"
                   ? "No notes match your search in this folder."
                   : "No entries match your search."
-                : "No entries yet. Create your first one!"}
+                : view === "notes"
+                  ? "No notes yet. Add your first one!"
+                  : "No check-ins yet. Add your first one!"}
             </Text>
-            {!searchQuery && view !== "checkins" && (
-              <Link href="/entries/new/checkin">
-                <GradientButton size="lg">Start journaling</GradientButton>
-              </Link>
-            )}
           </div>
         ) : (
           <Stack direction="vertical" gap="4">
@@ -296,8 +296,8 @@ export function EntriesPageContent({
           </Stack>
         )}
 
-        {/* Load more */}
-        {cursor && !searchQuery && view === "all" && (
+        {/* Load more (checkins only, loads from the paginated entries list) */}
+        {cursor && !searchQuery && view === "checkins" && (
           <div className="flex justify-center pt-2">
             {isLoading ? (
               <Spinner size="md" />

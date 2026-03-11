@@ -98,9 +98,9 @@ test.describe("Edit Entry", () => {
   test("can navigate to edit from entries list", async ({ page }) => {
     const entryId = await createMorningCheckin();
 
-    await page.goto("/");
+    await page.goto("/?view=checkins");
 
-    await expect(page.getByText("1 entry")).toBeVisible();
+    await expect(page.getByText("1 check-in")).toBeVisible();
 
     const entryCard = page.locator(`a[href="/entries/${entryId}"]`);
     await entryCard.click();
@@ -155,7 +155,8 @@ test.describe("Edit Entry", () => {
     await modal.getByRole("button", { name: "Delete" }).click();
 
     await page.waitForURL("/");
-    await expect(page.getByText("0 entries")).toBeVisible();
+    // After redirect, default view is notes
+    await expect(page.getByText("0 notes")).toBeVisible();
 
     const res = await fetch(`${API_URL}/entries/${entryId}`);
     expect(res.status).toBe(404);
@@ -171,7 +172,7 @@ test.describe("Edit Entry", () => {
     await modal.getByRole("button", { name: "Delete" }).click();
 
     await page.waitForURL("/");
-    await expect(page.getByText("0 entries")).toBeVisible();
+    await expect(page.getByText("0 notes")).toBeVisible();
 
     const res = await fetch(`${API_URL}/entries/${entryId}`);
     expect(res.status).toBe(404);
@@ -267,7 +268,9 @@ test.describe("Edit Entry", () => {
 
     await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
-    await expect(page.getByText("1 entry")).toBeVisible();
+    // Default view is notes after redirect; switch to check-ins to verify
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
   test("redirects to home after saving edited evening check-in", async ({ page }) => {
@@ -280,7 +283,8 @@ test.describe("Edit Entry", () => {
 
     await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
-    await expect(page.getByText("1 entry")).toBeVisible();
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
   test("redirects to home after saving edited note", async ({ page }) => {
@@ -293,6 +297,6 @@ test.describe("Edit Entry", () => {
 
     await expect(page.getByText("Note updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
-    await expect(page.getByText("1 entry")).toBeVisible();
+    await expect(page.getByText("1 note")).toBeVisible();
   });
 });

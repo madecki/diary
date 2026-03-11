@@ -26,10 +26,10 @@ test.describe("Create Note", () => {
     await resetDatabase();
   });
 
-  test("navigates to note form from homepage", async ({ page }) => {
+  test("navigates to note form from homepage via Add new button", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "New Note" }).click();
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/note");
 
     await expect(page.getByRole("heading", { name: "New Note" })).toBeVisible();
@@ -93,7 +93,7 @@ test.describe("Create Note", () => {
     await page.getByRole("button", { name: "work" }).click();
     await page.getByRole("button", { name: "blabla" }).click();
 
-    await page.getByRole("link", { name: "New Note" }).click();
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL(/\/entries\/new\/note/);
 
     await expect(page.getByText("Saving in:")).toBeVisible();
@@ -107,6 +107,10 @@ test.describe("Create Note", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
+
+    // Navigate back into the folder to verify the note was saved there
+    await page.getByRole("button", { name: "work" }).click();
+    await page.getByRole("button", { name: "blabla" }).click();
 
     const newNoteCard = page.getByText("Note created inside folder.").locator("..").locator("..");
     await expect(newNoteCard.getByText("work/blabla")).toBeVisible();

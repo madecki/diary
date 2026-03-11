@@ -8,10 +8,13 @@ test.describe("Full User Flow", () => {
 
   test("complete journaling workflow", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("0 entries")).toBeVisible();
+    // Default view is notes
+    await expect(page.getByText("0 notes")).toBeVisible();
 
     // ── Create morning check-in ────────────────────────────────────
-    await page.getByRole("link", { name: "New Check-in" }).click();
+    // Navigate to check-ins tab and use the inline "Add new" button
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
     // Select morning
@@ -40,12 +43,14 @@ test.describe("Full User Flow", () => {
     await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
-    await expect(page.getByText("1 entry")).toBeVisible();
-    // Check-in card shows morning badge
+    // After redirect, default view is notes — switch to check-ins to verify
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await expect(page.getByText("1 check-in")).toBeVisible();
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
 
     // ── Create note ────────────────────────────────────────────────
-    await page.getByRole("link", { name: "New Note" }).click();
+    await page.getByRole("button", { name: "Notes" }).click();
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/note");
 
     const titleInput = page.getByPlaceholder("Give your note a title…");
@@ -60,7 +65,8 @@ test.describe("Full User Flow", () => {
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
-    await expect(page.getByText("2 entries")).toBeVisible();
+    // Default view is notes after redirect
+    await expect(page.getByText("1 note")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
 
     // ── Type filter ────────────────────────────────────────────────
@@ -71,10 +77,9 @@ test.describe("Full User Flow", () => {
     await page.getByRole("button", { name: "Notes" }).click();
     await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
 
-    await page.getByRole("button", { name: "All" }).click();
-    await expect(page.getByText("2 entries")).toBeVisible();
-
     // ── Search ─────────────────────────────────────────────────────
+    // Switch to check-ins to search within checkin content
+    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
@@ -83,10 +88,9 @@ test.describe("Full User Flow", () => {
     await expect(
       page.locator("span").filter({ hasText: "🌅 Morning" }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Weekly Goals" })).not.toBeVisible();
 
     await searchInput.clear();
-    await expect(page.getByText("2 entries")).toBeVisible();
+    await expect(page.getByText("1 check-in")).toBeVisible();
 
     // ── Open check-in for edit ─────────────────────────────────────
     const checkinCard = page.locator("span").filter({ hasText: "🌅 Morning" });

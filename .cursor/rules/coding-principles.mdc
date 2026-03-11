@@ -53,7 +53,16 @@ Notes can be organized into a hierarchical folder tree (`note_folders` table, se
 - Deleting a folder cascades to sub-folders; notes inside get `noteFolderId = null` (moved to root) via `onDelete: SetNull`.
 - **Renaming** a folder updates the folder's `name` and `path`, and recursively rewrites all descendant `path` strings within a transaction.
 - `BrowseNotesResponse.folders` is typed as `BrowseFolderItem[]` (extends `NoteFolderResponse` with `notesCount` and `foldersCount` counts).
-- **UI behaviour**: Creating a folder uses a modal triggered by a "Create folder" button (not inline input). The new note form does **not** show a folder picker — the folder is inherited from the URL param `?folder=...` set when "New Note" is clicked from within a folder view. The edit form retains the folder picker for reassignment.
+- **UI behaviour**: Creating a folder uses a modal triggered by a "Create folder" button (not inline input). The new note form does **not** show a folder picker — the folder is inherited from the URL param `?folder=...` set when "Add new" is clicked from within a folder view. The edit note form also does **not** show a folder picker — it shows a simple read-only banner indicating the current folder (matching the add-note experience).
+
+# Root Page UI Navigation
+
+The root page (`/`) shows two tabs: **Check-ins** and **Notes** (no "All" tab). **Notes is the default tab** (URL param `?view=notes`; `?view=checkins` for check-ins).
+
+- **Notes tab**: shows a breadcrumb + two inline toolbar buttons ("Add new" → `/entries/new/note` with optional `?folder=` param, and "Create folder" → modal). Below the toolbar: folder cards, then note cards for the current folder level.
+- **Check-ins tab**: shows a single "Add new" → `/entries/new/checkin` button in the top-right corner of the tab area, then the filtered list of check-in entries.
+- **Entry creation buttons** are **not** in the page header — they live inside each tab's content area.
+- **Empty states** show only text — no action buttons.
 
 # Shared Package
 

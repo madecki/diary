@@ -6,10 +6,11 @@ test.describe("Create Check-in", () => {
     await resetDatabase();
   });
 
-  test("navigates to check-in form from homepage", async ({ page }) => {
+  test("navigates to check-in form from homepage via Add new button", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "New Check-in" }).click();
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
     await expect(page.getByRole("heading", { name: "New Check-in" })).toBeVisible();
@@ -90,7 +91,9 @@ test.describe("Create Check-in", () => {
     const count = await getEntryCount();
     expect(count).toBe(1);
 
-    await expect(page.getByText("1 entry")).toBeVisible();
+    // After redirect, switch to check-ins tab to verify count
+    await page.getByRole("button", { name: "Check-ins" }).click();
+    await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
   test("creates an evening check-in successfully", async ({ page }) => {
@@ -132,13 +135,13 @@ test.describe("Create Check-in", () => {
   });
 
   test("back button returns to previous page", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("link", { name: "New Check-in" }).click();
+    await page.goto("/?view=checkins");
+    await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
     await page.getByRole("button", { name: "← Back" }).click();
 
-    await page.waitForURL("/");
+    await page.waitForURL("/?view=checkins");
   });
 
   test("shows loading overlay and disables form while saving", async ({ page }) => {

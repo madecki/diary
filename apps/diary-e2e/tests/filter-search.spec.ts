@@ -80,14 +80,12 @@ test.describe("Filter and Search", () => {
     await createNote("Book Notes", "Read about mindfulness and meditation");
   });
 
-  test("shows all entries by default", async ({ page }) => {
+  test("shows notes by default", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("4 entries")).toBeVisible();
+    await expect(page.getByText("2 notes")).toBeVisible();
 
-    const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
     const shortNoteBadges = page.locator("span").filter({ hasText: /^Note$/ });
-    await expect(checkinBadges).toHaveCount(2);
     await expect(shortNoteBadges).toHaveCount(2);
   });
 
@@ -112,6 +110,7 @@ test.describe("Filter and Search", () => {
   test("searches by gratitude item", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
@@ -125,6 +124,7 @@ test.describe("Filter and Search", () => {
   test("searches by daily affirmation", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
@@ -138,6 +138,7 @@ test.describe("Filter and Search", () => {
   test("searches by what I learned today", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
@@ -151,9 +152,7 @@ test.describe("Filter and Search", () => {
   test("searches by title", async ({ page }) => {
     await page.goto("/");
 
-    const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
-    );
+    const searchInput = page.getByPlaceholder("Search notes by title and content…");
     await searchInput.fill("Project");
 
     await expect(page.getByRole("heading", { name: "Project Ideas" })).toBeVisible();
@@ -163,12 +162,10 @@ test.describe("Filter and Search", () => {
   test("shows no results message when search has no matches", async ({ page }) => {
     await page.goto("/");
 
-    const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
-    );
+    const searchInput = page.getByPlaceholder("Search notes by title and content…");
     await searchInput.fill("nonexistent query xyz123");
 
-    await expect(page.getByText("No entries match your search")).toBeVisible();
+    await expect(page.getByText("No notes match your search in this folder.")).toBeVisible();
   });
 
   test("combines filter and search", async ({ page }) => {
