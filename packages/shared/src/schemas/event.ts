@@ -7,7 +7,7 @@ export const DiaryEventNameSchema = z.enum([
 ]);
 export type DiaryEventName = z.infer<typeof DiaryEventNameSchema>;
 
-export const AggregateTypeSchema = z.enum(["checkin", "short_note"]);
+export const AggregateTypeSchema = z.enum(["checkin", "note"]);
 export type AggregateType = z.infer<typeof AggregateTypeSchema>;
 
 export const DerivedDataSchema = z.object({

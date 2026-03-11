@@ -2,11 +2,15 @@ import type {
   ListEntriesResponse,
   EntryResponse,
   CreateCheckinInput,
-  CreateShortNoteInput,
+  CreateNoteInput,
   UpdateCheckinInput,
-  UpdateShortNoteInput,
+  UpdateNoteInput,
   EmotionResponse,
   TriggerResponse,
+  NoteFolderResponse,
+  CreateNoteFolderInput,
+  RenameNoteFolderInput,
+  BrowseNotesResponse,
 } from "@diary/shared";
 
 const API_BASE =
@@ -56,10 +60,10 @@ export function createCheckin(data: CreateCheckinInput): Promise<EntryResponse> 
   });
 }
 
-export function createShortNote(
-  data: CreateShortNoteInput,
+export function createNote(
+  data: CreateNoteInput,
 ): Promise<EntryResponse> {
-  return request("/entries/short-notes", {
+  return request("/entries/notes", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -67,7 +71,7 @@ export function createShortNote(
 
 export function updateEntry(
   id: string,
-  data: UpdateCheckinInput | UpdateShortNoteInput,
+  data: UpdateCheckinInput | UpdateNoteInput,
 ): Promise<EntryResponse> {
   return request(`/entries/${id}`, {
     method: "PATCH",
@@ -85,4 +89,38 @@ export function fetchEmotions(): Promise<EmotionResponse[]> {
 
 export function fetchTriggers(): Promise<TriggerResponse[]> {
   return request("/triggers");
+}
+
+export function fetchNoteFolders(): Promise<NoteFolderResponse[]> {
+  return request("/entries/note-folders");
+}
+
+export function createNoteFolder(
+  data: CreateNoteFolderInput,
+): Promise<NoteFolderResponse> {
+  return request("/entries/note-folders", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function browseNotes(path?: string): Promise<BrowseNotesResponse> {
+  const query = new URLSearchParams();
+  if (path) query.set("path", path);
+  const qs = query.toString();
+  return request(`/entries/notes/browse${qs ? `?${qs}` : ""}`);
+}
+
+export function renameNoteFolder(data: RenameNoteFolderInput): Promise<NoteFolderResponse> {
+  return request("/entries/note-folders", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteNoteFolder(path: string, force = false): Promise<void> {
+  const query = new URLSearchParams();
+  query.set("path", path);
+  query.set("force", String(force));
+  return request(`/entries/note-folders?${query.toString()}`, { method: "DELETE" });
 }

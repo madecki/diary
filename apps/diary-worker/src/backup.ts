@@ -24,7 +24,7 @@ export class MarkdownBackup {
       const markdown =
         type === "checkin"
           ? renderCheckin(payload.data.entrySnapshot, payload.data.derived)
-          : renderShortNote(payload.data.entrySnapshot);
+          : renderNote(payload.data.entrySnapshot);
 
       await this.writeFile(localDate, type, id, markdown);
       console.log(`[MarkdownBackup] Backed up ${payload.eventName} ${id}`);
@@ -62,10 +62,11 @@ export class MarkdownBackup {
 
 // ─── Renderers ────────────────────────────────────────────────────────────────
 
-function renderShortNote(snapshot: Record<string, unknown>): string {
+function renderNote(snapshot: Record<string, unknown>): string {
   const title = (snapshot.title as string | null) ?? "Untitled";
   const plainText = (snapshot.plainText as string | null) ?? "";
   const wordCount = snapshot.wordCount as number | null;
+  const noteFolderPath = snapshot.noteFolderPath as string | null;
   const createdAt = snapshot.createdAt as string;
   const updatedAt = snapshot.updatedAt as string;
   const localDate = snapshot.localDate as string;
@@ -73,9 +74,10 @@ function renderShortNote(snapshot: Record<string, unknown>): string {
 
   const frontmatter = buildFrontmatter({
     id,
-    type: "short_note",
+    type: "note",
     date: localDate,
     title,
+    folder_path: noteFolderPath,
     word_count: wordCount,
     created_at: createdAt,
     updated_at: updatedAt,

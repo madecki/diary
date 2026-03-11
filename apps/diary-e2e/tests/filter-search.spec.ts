@@ -1,14 +1,13 @@
 import { test, expect } from "@playwright/test";
+import { API_URL } from "../playwright.config";
 import { resetDatabase } from "../db";
-
-const API_BASE = "http://localhost:4281";
 
 async function createMorningCheckin(
   whatImGratefulFor: [string, string, string],
   whatWouldMakeDayGreat: [string, string, string],
   dailyAffirmation: string,
 ): Promise<void> {
-  await fetch(`${API_BASE}/entries/checkins`, {
+  await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -28,7 +27,7 @@ async function createEveningCheckin(
   highlightsOfTheDay: [string, string, string],
   whatDidILearnToday: string,
 ): Promise<void> {
-  await fetch(`${API_BASE}/entries/checkins`, {
+  await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -43,8 +42,8 @@ async function createEveningCheckin(
   });
 }
 
-async function createShortNote(title: string, content: string): Promise<void> {
-  await fetch(`${API_BASE}/entries/short-notes`, {
+async function createNote(title: string, content: string): Promise<void> {
+  await fetch(`${API_URL}/entries/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -77,8 +76,8 @@ test.describe("Filter and Search", () => {
       ["Completed the sprint review", "", ""],
       "Time management is essential for success",
     );
-    await createShortNote("Project Ideas", "Build a new app for journaling");
-    await createShortNote("Book Notes", "Read about mindfulness and meditation");
+    await createNote("Project Ideas", "Build a new app for journaling");
+    await createNote("Book Notes", "Read about mindfulness and meditation");
   });
 
   test("shows all entries by default", async ({ page }) => {
@@ -87,7 +86,7 @@ test.describe("Filter and Search", () => {
     await expect(page.getByText("4 entries")).toBeVisible();
 
     const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
-    const shortNoteBadges = page.locator("span").filter({ hasText: /^Short Note$/ });
+    const shortNoteBadges = page.locator("span").filter({ hasText: /^Note$/ });
     await expect(checkinBadges).toHaveCount(2);
     await expect(shortNoteBadges).toHaveCount(2);
   });
@@ -101,12 +100,12 @@ test.describe("Filter and Search", () => {
     await expect(checkinBadges).toHaveCount(2);
   });
 
-  test("filters by short notes only", async ({ page }) => {
+  test("filters by notes only", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Short Notes" }).click();
+    await page.getByRole("button", { name: "Notes" }).click();
 
-    const shortNoteBadges = page.locator("span").filter({ hasText: /^Short Note$/ });
+    const shortNoteBadges = page.locator("span").filter({ hasText: /^Note$/ });
     await expect(shortNoteBadges).toHaveCount(2);
   });
 
@@ -175,11 +174,10 @@ test.describe("Filter and Search", () => {
   test("combines filter and search", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Short Notes" }).click();
+    await page.getByRole("button", { name: "Notes" }).click();
 
-    const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
-    );
+    // In notes view the search placeholder differs from the all-entries view
+    const searchInput = page.getByPlaceholder("Search notes by title and content…");
     await searchInput.fill("mindfulness");
 
     await expect(page.getByRole("heading", { name: "Book Notes" })).toBeVisible();

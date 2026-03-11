@@ -1,10 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { API_URL } from "../playwright.config";
 import { resetDatabase } from "../db";
 
-const API_BASE = "http://localhost:4281";
-
 async function createMorningCheckin(): Promise<string> {
-  const res = await fetch(`${API_BASE}/entries/checkins`, {
+  const res = await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -23,7 +22,7 @@ async function createMorningCheckin(): Promise<string> {
 }
 
 async function createEveningCheckin(): Promise<string> {
-  const res = await fetch(`${API_BASE}/entries/checkins`, {
+  const res = await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -40,8 +39,8 @@ async function createEveningCheckin(): Promise<string> {
   return data.id;
 }
 
-async function createShortNote(): Promise<string> {
-  const res = await fetch(`${API_BASE}/entries/short-notes`, {
+async function createNote(): Promise<string> {
+  const res = await fetch(`${API_URL}/entries/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -87,8 +86,8 @@ test.describe("Edit Entry", () => {
     await expect(page.getByText("Highlights of the day")).toBeVisible();
   });
 
-  test("opens short note in edit mode", async ({ page }) => {
-    const entryId = await createShortNote();
+  test("opens note in edit mode", async ({ page }) => {
+    const entryId = await createNote();
 
     await page.goto(`/entries/${entryId}`);
 
@@ -158,12 +157,12 @@ test.describe("Edit Entry", () => {
     await page.waitForURL("/");
     await expect(page.getByText("0 entries")).toBeVisible();
 
-    const res = await fetch(`${API_BASE}/entries/${entryId}`);
+    const res = await fetch(`${API_URL}/entries/${entryId}`);
     expect(res.status).toBe(404);
   });
 
-  test("confirming delete removes short note and redirects to home", async ({ page }) => {
-    const entryId = await createShortNote();
+  test("confirming delete removes note and redirects to home", async ({ page }) => {
+    const entryId = await createNote();
 
     await page.goto(`/entries/${entryId}`);
     await page.getByRole("button", { name: "Delete" }).first().click();
@@ -174,7 +173,7 @@ test.describe("Edit Entry", () => {
     await page.waitForURL("/");
     await expect(page.getByText("0 entries")).toBeVisible();
 
-    const res = await fetch(`${API_BASE}/entries/${entryId}`);
+    const res = await fetch(`${API_URL}/entries/${entryId}`);
     expect(res.status).toBe(404);
   });
 
@@ -284,8 +283,8 @@ test.describe("Edit Entry", () => {
     await expect(page.getByText("1 entry")).toBeVisible();
   });
 
-  test("redirects to home after saving edited short note", async ({ page }) => {
-    const entryId = await createShortNote();
+  test("redirects to home after saving edited note", async ({ page }) => {
+    const entryId = await createNote();
 
     await page.goto(`/entries/${entryId}`);
     await expect(page.getByRole("heading", { name: "Edit Note" })).toBeVisible();

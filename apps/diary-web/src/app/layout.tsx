@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Diary",
-  description: "Personal diary — check-ins and short notes",
+  description: "Personal diary — check-ins and notes",
 };
 
 export default function RootLayout({

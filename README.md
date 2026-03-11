@@ -113,7 +113,7 @@ Two entry types:
 - **triggers**: 1-5 tags (required)
 - **timeOfDay**: optional "morning" | "evening"
 
-### Short Note
+### Note
 - **content**: WYSIWYG via Tiptap (stored as JSON)
 - **title**: optional
 
@@ -127,7 +127,7 @@ Both types persist:
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/entries/checkins` | Create a check-in |
-| `POST` | `/entries/short-notes` | Create a short note |
+| `POST` | `/entries/notes` | Create a note |
 | `GET` | `/entries` | List entries (cursor pagination) |
 | `GET` | `/entries/:id` | Get single entry |
 | `PATCH` | `/entries/:id` | Update entry (type cannot change) |
@@ -138,7 +138,7 @@ Both types persist:
 
 - `cursor` — entry ID for cursor-based pagination (ULID, time-ordered)
 - `limit` — items per page (1-100, default 20)
-- `type` — filter by `checkin` or `short_note`
+- `type` — filter by `checkin` or `note`
 
 ### Replay Endpoint (POST /events/replay)
 
@@ -235,7 +235,7 @@ Configuration (env vars):
 | `Nats-Msg-Id` | eventId (ULID) — enables JetStream dedup |
 | `diary-event-version` | `1` |
 | `diary-aggregate-id` | entry ID |
-| `diary-aggregate-type` | `checkin` or `short_note` |
+| `diary-aggregate-type` | `checkin` or `note` |
 
 ## MFE (Micro-Frontend) Notes
 
@@ -266,7 +266,7 @@ pnpm db:generate
 
 ## Design Decisions
 
-1. **Single-table inheritance** for entries — check-ins and short notes share one table with nullable type-specific columns. Simpler queries and pagination.
+1. **Single-table inheritance** for entries — check-ins and notes share one table with nullable type-specific columns. Simpler queries and pagination.
 
 2. **ULID for IDs** — Time-sortable, globally unique, used for cursor pagination. No sequential integer exposure.
 

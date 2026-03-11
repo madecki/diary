@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const EntryTypeSchema = z.enum(["checkin", "short_note"]);
+export const EntryTypeSchema = z.enum(["checkin", "note"]);
 export type EntryType = z.infer<typeof EntryTypeSchema>;
 
 export const CheckInTypeSchema = z.enum(["morning", "evening"]);
@@ -13,13 +13,15 @@ export const EntryResponseSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 
-  // Short note fields (null for check-ins)
+  // Note fields (null for check-ins)
   title: z.string().nullable(),
   contentJson: z.unknown().nullable(),
   plainText: z.string().nullable(),
   wordCount: z.number().int().nullable(),
+  noteFolderId: z.string().nullable(),
+  noteFolderPath: z.string().nullable(),
 
-  // Check-in fields (null / empty arrays for short notes)
+  // Check-in fields (null / empty arrays for notes)
   mood: z.number().int().min(1).max(10).nullable(),
   emotions: z.array(z.string()),
   triggers: z.array(z.string()),

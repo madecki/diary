@@ -6,10 +6,12 @@ import pg from "pg";
 // apps/diary-e2e is 2 levels deep from the monorepo root
 const ROOT_DIR = join(__dirname, "../..");
 const STATE_FILE = join(__dirname, ".e2e-state.json");
-const DATABASE_URL = "postgresql://diary:diary@localhost:54320/diary";
+const DATABASE_URL =
+  process.env.E2E_DATABASE_URL ?? "postgresql://diary:diary@localhost:54320/diary_e2e";
 
-const FRONTEND_PORT = 4280;
-const BACKEND_PORT = 4281;
+// Use dedicated test ports so the production app on 4280/4281 is never disturbed
+const FRONTEND_PORT = 4282;
+const BACKEND_PORT = 4283;
 
 // Dedicated backup dir for e2e tests — deterministic path, gitignored via diary-backups/
 export const E2E_BACKUP_DIR = join(__dirname, "test-backup");
@@ -46,6 +48,26 @@ async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`Port ${port} did not become available within ${timeoutMs}ms`);
+}
+
+async function ensureE2EDatabase(): Promise<void> {
+  const targetUrl = new URL(DATABASE_URL);
+  const dbName = targetUrl.pathname.replace(/^\//, "");
+  if (!dbName) throw new Error("E2E database name is missing");
+
+  const adminUrl = new URL(DATABASE_URL);
+  adminUrl.pathname = "/postgres";
+
+  const client = new pg.Client({ connectionString: adminUrl.toString() });
+  await client.connect();
+  try {
+    const exists = await client.query("SELECT 1 FROM pg_database WHERE datname = $1", [dbName]);
+    if (exists.rowCount === 0) {
+      await client.query(`CREATE DATABASE "${dbName}"`);
+    }
+  } finally {
+    await client.end();
+  }
 }
 
 function killProcessOnPort(port: number): void {
@@ -108,10 +130,12 @@ export default async function globalSetup(): Promise<void> {
   });
 
   console.log("⏳ Waiting for Postgres...");
+  const adminUrl = new URL(DATABASE_URL);
+  adminUrl.pathname = "/postgres";
   let retries = 0;
   while (retries < 15) {
     try {
-      const client = new pg.Client({ connectionString: DATABASE_URL });
+      const client = new pg.Client({ connectionString: adminUrl.toString() });
       await client.connect();
       await client.end();
       break;
@@ -122,11 +146,21 @@ export default async function globalSetup(): Promise<void> {
   }
   if (retries === 15) throw new Error("Postgres did not become available");
 
+  await ensureE2EDatabase();
+
   console.log("📦 Running migrations...");
-  execSync("pnpm db:migrate:deploy", { cwd: ROOT_DIR, stdio: "inherit" });
+  execSync("pnpm db:migrate:deploy", {
+    cwd: ROOT_DIR,
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL },
+  });
 
   console.log("🌱 Seeding reference data...");
-  execSync("pnpm db:seed", { cwd: ROOT_DIR, stdio: "inherit" });
+  execSync("pnpm db:seed", {
+    cwd: ROOT_DIR,
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL },
+  });
 
   console.log("🗑️  Resetting database...");
   const client = new pg.Client({ connectionString: DATABASE_URL });
@@ -134,6 +168,7 @@ export default async function globalSetup(): Promise<void> {
   try {
     await client.query("TRUNCATE TABLE entries RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE outbox_events RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE TABLE note_folders RESTART IDENTITY CASCADE");
   } finally {
     await client.end();
   }
@@ -142,17 +177,24 @@ export default async function globalSetup(): Promise<void> {
   execSync("pnpm --filter @diary/shared build", { cwd: ROOT_DIR, stdio: "inherit" });
 
   console.log("🚀 Starting diary-api...");
-  const backendProc = startProcess("pnpm", ["--filter", "diary-api", "dev"], ROOT_DIR);
+  const backendProc = startProcess("pnpm", ["--filter", "diary-api", "dev"], ROOT_DIR, {
+    DATABASE_URL,
+    PORT: String(BACKEND_PORT),
+    CORS_ORIGIN: `http://localhost:${FRONTEND_PORT}`,
+  });
 
   console.log("🚀 Starting diary-web...");
-  const frontendProc = startProcess("pnpm", ["--filter", "diary-web", "dev"], ROOT_DIR);
+  const frontendProc = startProcess("pnpm", ["--filter", "diary-web", "dev:e2e"], ROOT_DIR, {
+    NEXT_PUBLIC_API_BASE_URL: `http://localhost:${BACKEND_PORT}`,
+    NEXT_DIST_DIR: ".next-e2e",
+  });
 
   console.log("🚀 Starting diary-worker...");
   const workerProc = startProcess(
     "pnpm",
     ["--filter", "diary-worker", "dev"],
     ROOT_DIR,
-    { BACKUP_DIR: E2E_BACKUP_DIR },
+    { BACKUP_DIR: E2E_BACKUP_DIR, DATABASE_URL },
   );
 
   writeFileSync(

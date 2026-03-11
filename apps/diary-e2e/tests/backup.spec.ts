@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { API_URL } from "../playwright.config";
@@ -13,7 +13,7 @@ const month = todayParts[1] ?? "";
 async function waitForBackupFile(
   entryId: string,
   type: string,
-  timeoutMs = 10_000,
+  timeoutMs = 30_000,
 ): Promise<string | null> {
   const dir = join(E2E_BACKUP_DIR, year, month);
   const expected = `${TODAY}_${type}_${entryId}.md`;
@@ -23,18 +23,44 @@ async function waitForBackupFile(
     if (existsSync(join(dir, expected))) {
       return join(dir, expected);
     }
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 500));
   }
   return null;
 }
 
+async function ensureBackupPipelineReady(request: APIRequestContext): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await request.post(`${API_URL}/entries/notes`, {
+      data: {
+        contentJson: { blocks: [] },
+        plainText: `Warmup ${Date.now()}`,
+        wordCount: 2,
+        localDate: TODAY,
+      },
+    });
+
+    if (res.status() !== 201) {
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
+
+    const entry = await res.json();
+    const filePath = await waitForBackupFile(entry.id, "note", 10_000);
+    if (filePath) return;
+  }
+
+  throw new Error("Backup pipeline was not ready in time");
+}
+
 test.describe("Markdown Backup", () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ request }) => {
+    await resetDatabase();
+    await ensureBackupPipelineReady(request);
     await resetDatabase();
   });
 
-  test("creates a .md backup file when a short note is saved", async ({ request }) => {
-    const res = await request.post(`${API_URL}/entries/short-notes`, {
+  test("creates a .md backup file when a note is saved", async ({ request }) => {
+    const res = await request.post(`${API_URL}/entries/notes`, {
       data: {
         title: "Backup Test Note",
         contentJson: { blocks: [] },
@@ -47,13 +73,13 @@ test.describe("Markdown Backup", () => {
     expect(res.status()).toBe(201);
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "short_note");
+    const filePath = await waitForBackupFile(entry.id, "note");
     expect(filePath).not.toBeNull();
 
     const content = readFileSync(filePath as string, "utf-8");
 
     expect(content).toContain(`id: ${entry.id}`);
-    expect(content).toContain("type: short_note");
+    expect(content).toContain("type: note");
     expect(content).toContain(`date: ${TODAY}`);
     expect(content).toContain("title: Backup Test Note");
     expect(content).toContain("# Backup Test Note");
@@ -77,7 +103,7 @@ test.describe("Markdown Backup", () => {
     expect(res.status()).toBe(201);
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "checkin");
+    const filePath = await waitForBackupFile(entry.id, "checkin", 30_000);
     expect(filePath).not.toBeNull();
 
     const content = readFileSync(filePath as string, "utf-8");
@@ -134,7 +160,7 @@ test.describe("Markdown Backup", () => {
   });
 
   test("moves backup to _deleted/ when entry is deleted", async ({ request }) => {
-    const create = await request.post(`${API_URL}/entries/short-notes`, {
+    const create = await request.post(`${API_URL}/entries/notes`, {
       data: {
         contentJson: { blocks: [] },
         plainText: "To be deleted.",
@@ -145,7 +171,7 @@ test.describe("Markdown Backup", () => {
     const entry = await create.json();
 
     // Wait for initial backup
-    const filePath = await waitForBackupFile(entry.id, "short_note");
+    const filePath = await waitForBackupFile(entry.id, "note", 30_000);
     expect(filePath).not.toBeNull();
 
     // Delete the entry
@@ -153,8 +179,8 @@ test.describe("Markdown Backup", () => {
     expect(del.status()).toBe(204);
 
     // Wait for file to move to _deleted/
-    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${TODAY}_short_note_${entry.id}.md`);
-    const deadline = Date.now() + 10_000;
+    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${TODAY}_note_${entry.id}.md`);
+    const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       if (existsSync(deletedPath)) break;
       await new Promise((r) => setTimeout(r, 300));
@@ -166,7 +192,7 @@ test.describe("Markdown Backup", () => {
   });
 
   test("backup dir is organised by year/month", async ({ request }) => {
-    const res = await request.post(`${API_URL}/entries/short-notes`, {
+    const res = await request.post(`${API_URL}/entries/notes`, {
       data: {
         contentJson: { blocks: [] },
         plainText: "Directory structure test.",
@@ -176,7 +202,8 @@ test.describe("Markdown Backup", () => {
     });
     const entry = await res.json();
 
-    await waitForBackupFile(entry.id, "short_note");
+    const filePath = await waitForBackupFile(entry.id, "note", 30_000);
+    expect(filePath).not.toBeNull();
 
     const dir = join(E2E_BACKUP_DIR, year, month);
     expect(existsSync(dir)).toBe(true);

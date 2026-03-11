@@ -1,6 +1,7 @@
 import pg from "pg";
 
-const DATABASE_URL = "postgresql://diary:diary@localhost:54320/diary";
+const DATABASE_URL =
+  process.env.E2E_DATABASE_URL ?? "postgresql://diary:diary@localhost:54320/diary_e2e";
 
 export async function resetDatabase(): Promise<void> {
   const client = new pg.Client({ connectionString: DATABASE_URL });
@@ -8,6 +9,7 @@ export async function resetDatabase(): Promise<void> {
   try {
     await client.query("TRUNCATE TABLE entries RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE outbox_events RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE TABLE note_folders RESTART IDENTITY CASCADE");
   } finally {
     await client.end();
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Block } from "@blocknote/core";
@@ -16,21 +16,35 @@ import {
   Hr,
 } from "@madecki/ui";
 import type { EntryResponse } from "@diary/shared";
-import { createShortNote, updateEntry, deleteEntry } from "@/lib/api";
+import {
+  createNote,
+  updateEntry,
+  deleteEntry,
+  fetchNoteFolders,
+  createNoteFolder,
+} from "@/lib/api";
 import { todayLocalDate } from "@/lib/utils";
 import { EditorWrapper } from "@/components/editor/EditorWrapper";
 import { SuccessToast } from "./SuccessToast";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
-interface ShortNoteFormProps {
+interface NoteFormProps {
   entry?: EntryResponse;
+  initialFolderPath?: string | null;
 }
 
-export function ShortNoteForm({ entry }: ShortNoteFormProps) {
+export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
   const router = useRouter();
   const isEdit = !!entry;
 
   const [title, setTitle] = useState(entry?.title ?? "");
+  const [selectedFolderPath, setSelectedFolderPath] = useState(
+    entry?.noteFolderPath ?? "",
+  );
+  const [newFolderName, setNewFolderName] = useState("");
+  const [folders, setFolders] = useState<{ id: string; path: string }[]>([]);
+  const [foldersError, setFoldersError] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   const editorBlocks = useRef<Block[]>([]);
   const editorPlainText = useRef<string>("");
@@ -40,6 +54,20 @@ export function ShortNoteForm({ entry }: ShortNoteFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const loadFolders = useCallback(async () => {
+    try {
+      const rows = await fetchNoteFolders();
+      setFolders(rows.map((f) => ({ id: f.id, path: f.path })));
+      setFoldersError(null);
+    } catch {
+      setFoldersError("Could not load folders");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) loadFolders();
+  }, [isEdit, loadFolders]);
 
   const handleEditorChange = useCallback(
     (blocks: Block[], plainText: string, wordCount: number) => {
@@ -87,13 +115,15 @@ export function ShortNoteForm({ entry }: ShortNoteFormProps) {
           contentJson: { blocks: contentJson } as Record<string, unknown>,
           plainText,
           wordCount,
+          folderPath: selectedFolderPath || null,
         });
       } else {
-        await createShortNote({
+        await createNote({
           title: title || undefined,
           contentJson: { blocks: contentJson } as Record<string, unknown>,
           plainText,
           wordCount,
+          folderPath: initialFolderPath ?? undefined,
           localDate: todayLocalDate(),
         });
       }
@@ -117,10 +147,10 @@ export function ShortNoteForm({ entry }: ShortNoteFormProps) {
         <div className="flex items-center justify-between gap-4">
           <Stack direction="vertical" gap="2">
             <Heading level={1} size="2xl" weight="bold">
-              {isEdit ? "Edit Note" : "New Short Note"}
+              {isEdit ? "Edit Note" : "New Note"}
             </Heading>
             <Text color="muted" size="sm">
-              {isEdit ? "Update your note" : "Capture a quick thought"}
+              {isEdit ? "Update your note" : "Capture your thoughts"}
             </Text>
           </Stack>
 
@@ -153,6 +183,86 @@ export function ShortNoteForm({ entry }: ShortNoteFormProps) {
                 </Text>
               )}
             </div>
+
+            {!isEdit && initialFolderPath && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-sm bg-info/10 border border-info/30">
+                <Text size="sm" color="muted">Saving in:</Text>
+                <Text size="sm" weight="semibold">{initialFolderPath}</Text>
+              </div>
+            )}
+
+            {isEdit && (
+              <div className="flex flex-col gap-2">
+                <Text size="sm" weight="semibold">
+                  Folder
+                </Text>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ButtonTransparent
+                    variant={selectedFolderPath ? "neutral" : "info"}
+                    onClick={() => setSelectedFolderPath("")}
+                    type="button"
+                  >
+                    Root
+                  </ButtonTransparent>
+                  {folders.map((folder) => (
+                    <ButtonTransparent
+                      key={folder.id}
+                      variant={selectedFolderPath === folder.path ? "info" : "neutral"}
+                      onClick={() => setSelectedFolderPath(folder.path)}
+                      type="button"
+                    >
+                      {renderFolderLabel(folder.path)}
+                    </ButtonTransparent>
+                  ))}
+                </div>
+                <Text size="xs" color="muted">
+                  Selected: {selectedFolderPath || "Root"}
+                </Text>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Input
+                      name="newFolderName"
+                      label="New folder name"
+                      placeholder="another folder with space"
+                      type="text"
+                      variant="secondary"
+                      onChange={setNewFolderName}
+                      defaultValue={newFolderName}
+                    />
+                  </div>
+                  <ButtonTransparent
+                    variant="info"
+                    type="button"
+                    disabled={isCreatingFolder}
+                    onClick={async () => {
+                      const folderName = newFolderName.trim();
+                      if (!folderName) return;
+                      const path = selectedFolderPath
+                        ? `${selectedFolderPath}/${folderName}`
+                        : folderName;
+                      setIsCreatingFolder(true);
+                      try {
+                        const created = await createNoteFolder({ path });
+                        setSelectedFolderPath(created.path);
+                        setNewFolderName("");
+                        await loadFolders();
+                      } catch {
+                        setFoldersError("Could not create folder");
+                      } finally {
+                        setIsCreatingFolder(false);
+                      }
+                    }}
+                  >
+                    {isCreatingFolder ? "Creating…" : "Create subfolder"}
+                  </ButtonTransparent>
+                </div>
+                {foldersError && (
+                  <Text size="xs" color="danger">
+                    {foldersError}
+                  </Text>
+                )}
+              </div>
+            )}
 
             <Hr />
 
@@ -240,4 +350,11 @@ function extractBlocks(contentJson: unknown): unknown[] {
   if (Array.isArray(obj)) return obj;
   if (Array.isArray(obj["blocks"])) return obj["blocks"] as unknown[];
   return [];
+}
+
+function renderFolderLabel(path: string): string {
+  const parts = path.split("/");
+  const name = parts[parts.length - 1] ?? path;
+  const depth = Math.max(0, parts.length - 1);
+  return `${"· ".repeat(depth)}${name}`;
 }

@@ -44,9 +44,9 @@ test.describe("Full User Flow", () => {
     // Check-in card shows morning badge
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
 
-    // ── Create short note ──────────────────────────────────────────
-    await page.getByRole("link", { name: "New Short Note" }).click();
-    await page.waitForURL("/entries/new/short-note");
+    // ── Create note ────────────────────────────────────────────────
+    await page.getByRole("link", { name: "New Note" }).click();
+    await page.waitForURL("/entries/new/note");
 
     const titleInput = page.getByPlaceholder("Give your note a title…");
     await titleInput.fill("Weekly Goals");
@@ -68,7 +68,7 @@ test.describe("Full User Flow", () => {
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Weekly Goals" })).not.toBeVisible();
 
-    await page.getByRole("button", { name: "Short Notes" }).click();
+    await page.getByRole("button", { name: "Notes" }).click();
     await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
 
     await page.getByRole("button", { name: "All" }).click();

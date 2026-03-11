@@ -22,7 +22,7 @@ async function main() {
 
   let count = 0;
   for (const entry of entries) {
-    const markdown = entry.type === "checkin" ? renderCheckin(entry) : renderShortNote(entry);
+    const markdown = entry.type === "checkin" ? renderCheckin(entry) : renderNote(entry);
     await writeEntryFile(entry.localDate, entry.type, entry.id, markdown);
     count++;
   }
@@ -38,14 +38,15 @@ async function writeEntryFile(localDate: string, type: string, id: string, conte
   await writeFile(join(dir, filename), content, "utf-8");
 }
 
-function renderShortNote(entry: Entry): string {
+function renderNote(entry: Entry): string {
   const title = entry.title ?? "Untitled";
   const plainText = entry.plainText ?? "";
   const frontmatter = buildFrontmatter({
     id: entry.id,
-    type: "short_note",
+    type: "note",
     date: entry.localDate,
     title,
+    folder_id: entry.noteFolderId,
     word_count: entry.wordCount,
     created_at: entry.createdAt.toISOString(),
     updated_at: entry.updatedAt.toISOString(),

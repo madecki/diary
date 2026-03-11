@@ -43,8 +43,9 @@ export default async function globalTeardown(): Promise<void> {
     unlinkSync(STATE_FILE);
   }
 
-  killProcessOnPort(4280);
-  killProcessOnPort(4281);
+  // Only kill test ports — production app on 4280/4281 is intentionally left running
+  killProcessOnPort(4282);
+  killProcessOnPort(4283);
 
   if (existsSync(E2E_BACKUP_DIR)) {
     rmSync(E2E_BACKUP_DIR, { recursive: true, force: true });

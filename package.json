@@ -23,6 +23,7 @@
     "db:seed": "pnpm --filter @diary/database db:seed",
     "db:studio": "pnpm --filter @diary/database db:studio",
     "db:backup": "pnpm --filter @diary/database db:backup",
+    "db:restore:backups": "pnpm --filter @diary/database db:restore:backups",
     "clean": "turbo clean"
   },
   "pnpm": {

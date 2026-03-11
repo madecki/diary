@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
   CreateCheckinSchema,
-  CreateShortNoteSchema,
+  CreateNoteSchema,
   UpdateCheckinSchema,
-  UpdateShortNoteSchema,
+  UpdateNoteSchema,
   ListEntriesQuerySchema,
   DiaryEventPayloadSchema,
   EntryResponseSchema,
   OutboxQuerySchema,
   ReplayBodySchema,
+  CreateNoteFolderSchema,
 } from "../index.js";
 
 describe("CreateCheckinSchema", () => {
@@ -105,25 +106,25 @@ describe("CreateCheckinSchema", () => {
   });
 });
 
-describe("CreateShortNoteSchema", () => {
+describe("CreateNoteSchema", () => {
   const valid = {
     contentJson: { type: "doc", content: [] },
     plainText: "Quick thought",
     wordCount: 2,
   };
 
-  it("accepts valid short note", () => {
-    expect(CreateShortNoteSchema.parse(valid)).toMatchObject(valid);
+  it("accepts valid note", () => {
+    expect(CreateNoteSchema.parse(valid)).toMatchObject(valid);
   });
 
   it("accepts optional title", () => {
-    const result = CreateShortNoteSchema.parse({ ...valid, title: "My Note" });
+    const result = CreateNoteSchema.parse({ ...valid, title: "My Note" });
     expect(result.title).toBe("My Note");
   });
 
   it("rejects title longer than 200 characters", () => {
     expect(() =>
-      CreateShortNoteSchema.parse({ ...valid, title: "x".repeat(201) }),
+      CreateNoteSchema.parse({ ...valid, title: "x".repeat(201) }),
     ).toThrow();
   });
 });
@@ -163,14 +164,14 @@ describe("UpdateCheckinSchema", () => {
   });
 });
 
-describe("UpdateShortNoteSchema", () => {
+describe("UpdateNoteSchema", () => {
   it("accepts partial update", () => {
-    const result = UpdateShortNoteSchema.parse({ title: "Updated" });
+    const result = UpdateNoteSchema.parse({ title: "Updated" });
     expect(result.title).toBe("Updated");
   });
 
   it("allows nullable title", () => {
-    const result = UpdateShortNoteSchema.parse({ title: null });
+    const result = UpdateNoteSchema.parse({ title: null });
     expect(result.title).toBeNull();
   });
 });
@@ -295,6 +296,8 @@ describe("EntryResponseSchema", () => {
       contentJson: null,
       plainText: null,
       wordCount: null,
+      noteFolderId: null,
+      noteFolderPath: null,
       localDate: "2026-02-20",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
@@ -302,10 +305,10 @@ describe("EntryResponseSchema", () => {
     expect(EntryResponseSchema.parse(entry)).toMatchObject(entry);
   });
 
-  it("accepts a short_note response", () => {
+  it("accepts a note response", () => {
     const entry = {
       id: "01ARZ",
-      type: "short_note",
+      type: "note",
       mood: null,
       emotions: [],
       triggers: [],
@@ -319,10 +322,23 @@ describe("EntryResponseSchema", () => {
       plainText: "test",
       wordCount: 1,
       title: "My Note",
+      noteFolderId: null,
+      noteFolderPath: null,
       localDate: "2026-02-20",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
     };
     expect(EntryResponseSchema.parse(entry)).toMatchObject(entry);
+  });
+});
+
+describe("CreateNoteFolderSchema", () => {
+  it("accepts nested folder path", () => {
+    const result = CreateNoteFolderSchema.parse({ path: "work/projects/2026" });
+    expect(result.path).toBe("work/projects/2026");
+  });
+
+  it("rejects blank path", () => {
+    expect(() => CreateNoteFolderSchema.parse({ path: "  " })).toThrow();
   });
 });

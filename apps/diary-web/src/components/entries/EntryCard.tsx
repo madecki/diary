@@ -44,8 +44,14 @@ export function EntryCard({ entry }: EntryCardProps) {
                     isCheckin ? "bg-info/20 text-info" : "bg-blue/20 text-blue"
                   }`}
                 >
-                  {isCheckin ? "Check-in" : "Short Note"}
+                  {isCheckin ? "Check-in" : "Note"}
                 </span>
+
+                {!isCheckin && entry.noteFolderPath && (
+                  <span className="inline-flex items-center px-2 py-px rounded text-xs font-medium bg-gray/40 text-icongray">
+                    {entry.noteFolderPath}
+                  </span>
+                )}
 
                 {isCheckin && entry.mood !== null && entry.mood !== undefined && (
                   <span

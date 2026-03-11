@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Container, Stack, Spinner } from "@madecki/ui";
 import { fetchEntry } from "@/lib/api";
 import { CheckinForm } from "@/components/forms/CheckinForm";
-import { ShortNoteForm } from "@/components/forms/ShortNoteForm";
+import { NoteForm } from "@/components/forms/ShortNoteForm";
 
 interface EntryPageProps {
   params: Promise<{ id: string }>;
@@ -21,7 +21,7 @@ async function EntryLoader({ id }: { id: string }) {
     return <CheckinForm entry={entry} />;
   }
 
-  return <ShortNoteForm entry={entry} />;
+  return <NoteForm entry={entry} />;
 }
 
 function EntryFallback() {

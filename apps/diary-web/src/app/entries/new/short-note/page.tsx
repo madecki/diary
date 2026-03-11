@@ -1,9 +1,13 @@
-import { ShortNoteForm } from "@/components/forms/ShortNoteForm";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "New Short Note | Diary",
-};
+interface LegacyShortNotePageProps {
+  searchParams: Promise<{ folder?: string }>;
+}
 
-export default function NewShortNotePage() {
-  return <ShortNoteForm />;
+export default async function LegacyShortNotePage({
+  searchParams,
+}: LegacyShortNotePageProps) {
+  const params = await searchParams;
+  const qs = params.folder ? `?folder=${encodeURIComponent(params.folder)}` : "";
+  redirect(`/entries/new/note${qs}`);
 }

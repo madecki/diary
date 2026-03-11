@@ -40,10 +40,20 @@ This is a personal diary — data loss is unacceptable. Follow these rules:
 # Entry Types
 
 The `entries` table stores two types in a single flat model:
-- `short_note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`
+- `note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`
 - `checkin` — has `checkInType` (morning/evening), `mood` (1-10), `emotions[]`, `triggers[]`, and type-specific fields (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation` for morning; `highlightsOfTheDay`, `whatDidILearnToday` for evening)
 
 Fields not relevant to a type are `null` or `[]`.
+
+# Note Folders
+
+Notes can be organized into a hierarchical folder tree (`note_folders` table, self-referential by `parentId`). Key points:
+- Folders are identified by a **path string** (e.g. `work/projects/q1`) which is unique and derived from the tree structure.
+- API endpoints: `GET /entries/note-folders` (list all), `POST /entries/note-folders` (create by path, auto-creates ancestors), `PATCH /entries/note-folders` (rename — updates name and all descendant paths), `DELETE /entries/note-folders?path=...&force=false` (delete; `force=true` required for non-empty), `GET /entries/notes/browse?path=...` (list direct children + notes at a level).
+- Deleting a folder cascades to sub-folders; notes inside get `noteFolderId = null` (moved to root) via `onDelete: SetNull`.
+- **Renaming** a folder updates the folder's `name` and `path`, and recursively rewrites all descendant `path` strings within a transaction.
+- `BrowseNotesResponse.folders` is typed as `BrowseFolderItem[]` (extends `NoteFolderResponse` with `notesCount` and `foldersCount` counts).
+- **UI behaviour**: Creating a folder uses a modal triggered by a "Create folder" button (not inline input). The new note form does **not** show a folder picker — the folder is inherited from the URL param `?folder=...` set when "New Note" is clicked from within a folder view. The edit form retains the folder picker for reassignment.
 
 # Shared Package
 
@@ -55,7 +65,7 @@ The project uses `@madecki/ui` for all UI components. **Before creating any UI c
 
 # Approach
 
-You are a senior software engineer. Be pragmatic, do not overengineer. Check existing coding approaches before inventing your own. Keep code short and simple. Follow the patterns already established in the codebase.
+You are a senior software engineer. Be pragmatic, do not overengineer. Check existing coding approaches before inventing your own. Keep code short and simple. Follow the patterns already established in the codebase. If you apply changes to areas that should be reflected in this guideline - make sure you do it after you're done coding and testing.
 
 # Testing
 
@@ -64,5 +74,5 @@ When you implement any new features or edit existing ones, ALWAYS review existin
 When writing or editing tests:
 - Run them and iterate until they pass and truly reflect app behavior.
 - Tests guard the app — write them to catch real regressions, not just to make the suite green.
-- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries` and `outbox_events`). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
+- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries`, `outbox_events`, and `note_folders`). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
 - When testing async side effects (backup files, NATS events), poll with a reasonable timeout (10–15s) rather than using fixed sleeps.

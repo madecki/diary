@@ -17,11 +17,11 @@ test.describe("Entries List", () => {
     await expect(page.getByRole("link", { name: "Start journaling" })).toBeVisible();
   });
 
-  test("shows New Check-in and New Short Note buttons", async ({ page }) => {
+  test("shows New Check-in and New Note buttons", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByRole("link", { name: "New Check-in" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Short Note" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Note" })).toBeVisible();
   });
 
   test("search input is present", async ({ page }) => {
@@ -37,6 +37,6 @@ test.describe("Entries List", () => {
 
     await expect(page.getByRole("button", { name: "All" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Check-ins" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Short Notes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notes" })).toBeVisible();
   });
 });

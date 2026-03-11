@@ -13,5 +13,5 @@ export const NATS_SUBJECTS = ["diary.entry.created", "diary.entry.updated", "dia
 
 export const ENTRY_TYPES = {
   CHECKIN: "checkin",
-  SHORT_NOTE: "short_note",
+  NOTE: "note",
 } as const;
