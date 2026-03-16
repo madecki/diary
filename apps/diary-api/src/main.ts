@@ -7,6 +7,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module.js";
 import { ZodExceptionFilter } from "./common/zod-exception.filter.js";
+import { ActorGuard } from "./common/actor.guard.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -15,6 +16,7 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new ZodExceptionFilter());
+  app.useGlobalGuards(new ActorGuard());
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? "*",
     methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],

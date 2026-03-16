@@ -40,10 +40,10 @@ This is a personal diary — data loss is unacceptable. Follow these rules:
 # Entry Types
 
 The `entries` table stores two types in a single flat model:
-- `note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`
+- `note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`, optional `projectId` (FK to `projects`), and M:M `tags` relation.
 - `checkin` — has `checkInType` (morning/evening), `mood` (1-10), `emotions[]`, `triggers[]`, and type-specific fields (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation` for morning; `highlightsOfTheDay`, `whatDidILearnToday` for evening)
 
-Fields not relevant to a type are `null` or `[]`.
+Fields not relevant to a type are `null` or `[]`. Project and tags are only meaningful for notes — never shown or editable on check-ins.
 
 # Note Folders
 
@@ -57,12 +57,24 @@ Notes can be organized into a hierarchical folder tree (`note_folders` table, se
 
 # Root Page UI Navigation
 
-The root page (`/`) shows two tabs: **Check-ins** and **Notes** (no "All" tab). **Notes is the default tab** (URL param `?view=notes`; `?view=checkins` for check-ins).
+The root page (`/`) shows three tabs: **Notes** (default), **Check-ins**, and **Settings**. URL param `?view=` controls the active tab (`notes` | `checkins` | `settings`).
 
 - **Notes tab**: shows a breadcrumb + two inline toolbar buttons ("Add new" → `/entries/new/note` with optional `?folder=` param, and "Create folder" → modal). Below the toolbar: folder cards, then note cards for the current folder level.
 - **Check-ins tab**: shows a single "Add new" → `/entries/new/checkin` button in the top-right corner of the tab area, then the filtered list of check-in entries.
+- **Settings tab**: shows two sections — **Check-in options** (manage emotions and triggers) and **Notes options** (manage projects and tags). Search input and entry counts are hidden when settings is active.
 - **Entry creation buttons** are **not** in the page header — they live inside each tab's content area.
 - **Empty states** show only text — no action buttons.
+
+# Settings
+
+The Settings tab (`?view=settings`) allows managing reference data:
+
+- **Emotions** (`GET/POST /emotions`, `PATCH /emotions/:id`, `DELETE /emotions/:id`): Colored tag buttons matching the check-in form appearance (difficult=danger, neutral=warning, pleasant=success). Each emotion shows its usage count. **Deleting an emotion used in any check-in returns 409** and the delete button is disabled in the UI. **Renaming an emotion label propagates to all existing check-ins** via `array_replace` on the `entries.emotions` column.
+- **Triggers** (same pattern as emotions, `GET/POST /triggers`, `PATCH /triggers/:id`, `DELETE /triggers/:id`): Same usage-check and label-propagation behavior.
+- **Projects** (`GET/POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`): Name (unique) + optional description. Deleting a project sets `projectId = null` on all its notes (SetNull cascade). Projects can be assigned to notes via `projectId` field.
+- **Tags** (`GET/POST /tags`, `PATCH /tags/:id`, `DELETE /tags/:id`): Simple name-only tags. Tags can be assigned to multiple notes (M:M via `_EntryTags` join table). Deleting a tag removes the association from all notes (CASCADE).
+
+The `EmotionResponse` and `TriggerResponse` schemas include `usageCount: number` — computed live on each list call.
 
 # Shared Package
 
@@ -83,5 +95,5 @@ When you implement any new features or edit existing ones, ALWAYS review existin
 When writing or editing tests:
 - Run them and iterate until they pass and truly reflect app behavior.
 - Tests guard the app — write them to catch real regressions, not just to make the suite green.
-- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries`, `outbox_events`, and `note_folders`). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
+- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries`, `outbox_events`, `note_folders`, `projects`, and `tags` — but **not** `emotions` or `triggers` since those are seeded reference data). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
 - When testing async side effects (backup files, NATS events), poll with a reasonable timeout (10–15s) rather than using fixed sleeps.

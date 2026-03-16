@@ -10,6 +10,8 @@ export async function resetDatabase(): Promise<void> {
     await client.query("TRUNCATE TABLE entries RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE outbox_events RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE note_folders RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE TABLE projects RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE TABLE tags RESTART IDENTITY CASCADE");
   } finally {
     await client.end();
   }

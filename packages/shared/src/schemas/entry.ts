@@ -6,6 +6,18 @@ export type EntryType = z.infer<typeof EntryTypeSchema>;
 export const CheckInTypeSchema = z.enum(["morning", "evening"]);
 export type CheckInType = z.infer<typeof CheckInTypeSchema>;
 
+export const EntryProjectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type EntryProject = z.infer<typeof EntryProjectSchema>;
+
+export const EntryTagSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type EntryTag = z.infer<typeof EntryTagSchema>;
+
 export const EntryResponseSchema = z.object({
   id: z.string(),
   type: EntryTypeSchema,
@@ -20,6 +32,9 @@ export const EntryResponseSchema = z.object({
   wordCount: z.number().int().nullable(),
   noteFolderId: z.string().nullable(),
   noteFolderPath: z.string().nullable(),
+  projectId: z.string().nullable(),
+  project: EntryProjectSchema.nullable(),
+  tags: z.array(EntryTagSchema),
 
   // Check-in fields (null / empty arrays for notes)
   mood: z.number().int().min(1).max(10).nullable(),

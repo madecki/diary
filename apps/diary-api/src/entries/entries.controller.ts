@@ -9,27 +9,28 @@ import {
   ListEntriesQuerySchema,
 } from "@diary/shared";
 import { EntriesService } from "./entries.service.js";
+import { Actor } from "../common/actor.decorator.js";
 
 @Controller("entries")
 export class EntriesController {
   constructor(@Inject(EntriesService) private readonly entries: EntriesService) {}
 
   @Post("checkins")
-  createCheckin(@Body() body: unknown) {
+  createCheckin(@Body() body: unknown, @Actor() actor: { userId: string }) {
     const input = CreateCheckinSchema.parse(body);
-    return this.entries.createCheckin(input);
+    return this.entries.createCheckin(input, actor.userId);
   }
 
   @Post("notes")
-  createNote(@Body() body: unknown) {
+  createNote(@Body() body: unknown, @Actor() actor: { userId: string }) {
     const input = CreateNoteSchema.parse(body);
-    return this.entries.createNote(input);
+    return this.entries.createNote(input, actor.userId);
   }
 
   @Get()
-  listEntries(@Query() query: unknown) {
+  listEntries(@Query() query: unknown, @Actor() actor: { userId: string }) {
     const input = ListEntriesQuerySchema.parse(query);
-    return this.entries.listEntries(input);
+    return this.entries.listEntries(input, actor.userId);
   }
 
   @Get("note-folders")
@@ -63,18 +64,18 @@ export class EntriesController {
   }
 
   @Get(":id")
-  getEntry(@Param("id") id: string) {
-    return this.entries.getEntry(id);
+  getEntry(@Param("id") id: string, @Actor() actor: { userId: string }) {
+    return this.entries.getEntry(id, actor.userId);
   }
 
   @Patch(":id")
-  updateEntry(@Param("id") id: string, @Body() body: unknown) {
-    return this.entries.updateEntry(id, body);
+  updateEntry(@Param("id") id: string, @Body() body: unknown, @Actor() actor: { userId: string }) {
+    return this.entries.updateEntry(id, body, actor.userId);
   }
 
   @Delete(":id")
   @HttpCode(204)
-  deleteEntry(@Param("id") id: string) {
-    return this.entries.deleteEntry(id);
+  deleteEntry(@Param("id") id: string, @Actor() actor: { userId: string }) {
+    return this.entries.deleteEntry(id, actor.userId);
   }
 }

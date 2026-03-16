@@ -19,6 +19,7 @@
     "db:seed": "prisma db seed",
     "db:backup": "tsx prisma/backup.ts",
     "db:restore:backups": "tsx prisma/restore-from-backups.ts",
+    "db:assign-owner": "tsx scripts/assign-legacy-owner.ts",
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "typecheck": "tsc --noEmit",

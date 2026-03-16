@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Block } from "@blocknote/core";
@@ -15,16 +15,19 @@ import {
   Input,
   Hr,
 } from "@madecki/ui";
-import type { EntryResponse } from "@diary/shared";
+import type { EntryResponse, ProjectResponse, TagResponse } from "@diary/shared";
 import {
   createNote,
   updateEntry,
   deleteEntry,
+  fetchProjects,
+  fetchTags,
 } from "@/lib/api";
 import { todayLocalDate } from "@/lib/utils";
 import { EditorWrapper } from "@/components/editor/EditorWrapper";
 import { SuccessToast } from "./SuccessToast";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { ProjectPicker, TagPicker } from "./NoteMetadataPickers";
 
 interface NoteFormProps {
   entry?: EntryResponse;
@@ -37,6 +40,24 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
 
   const [title, setTitle] = useState(entry?.title ?? "");
   const folderPath = isEdit ? (entry?.noteFolderPath ?? null) : (initialFolderPath ?? null);
+
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [tags, setTags] = useState<TagResponse[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [projectId, setProjectId] = useState<string | null>(entry?.projectId ?? null);
+  const [tagIds, setTagIds] = useState<string[]>(entry?.tags?.map((t) => t.id) ?? []);
+
+  useEffect(() => {
+    Promise.all([fetchProjects(), fetchTags()])
+      .then(([projs, tgs]) => {
+        setProjects(projs);
+        setTags(tgs);
+      })
+      .catch(() => {
+        // silently fail — metadata fields remain empty
+      })
+      .finally(() => setMetaLoading(false));
+  }, []);
 
   const editorBlocks = useRef<Block[]>([]);
   const editorPlainText = useRef<string>("");
@@ -94,6 +115,8 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           plainText,
           wordCount,
           folderPath: folderPath,
+          projectId: projectId,
+          tagIds,
         });
       } else {
         await createNote({
@@ -102,6 +125,8 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           plainText,
           wordCount,
           folderPath: folderPath ?? undefined,
+          projectId: projectId ?? undefined,
+          tagIds: tagIds.length > 0 ? tagIds : undefined,
           localDate: todayLocalDate(),
         });
       }
@@ -170,6 +195,22 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
                 <Text size="sm" weight="semibold">{folderPath}</Text>
               </div>
             )}
+
+            <ProjectPicker
+              projects={projects}
+              value={projectId}
+              onChange={setProjectId}
+              isLoading={metaLoading}
+              disabled={isSaving}
+            />
+
+            <TagPicker
+              tags={tags}
+              value={tagIds}
+              onChange={setTagIds}
+              isLoading={metaLoading}
+              disabled={isSaving}
+            />
 
             <Hr />
 

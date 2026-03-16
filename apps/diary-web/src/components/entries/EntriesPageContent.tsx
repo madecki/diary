@@ -18,6 +18,7 @@ import { EntryCard } from "./EntryCard";
 import { CreateFolderModal } from "./CreateFolderModal";
 import { DeleteFolderModal } from "./DeleteFolderModal";
 import { RenameFolderModal } from "./RenameFolderModal";
+import { SettingsContent } from "../settings/SettingsContent";
 import {
   browseNotes,
   createNoteFolder,
@@ -27,8 +28,9 @@ import {
 } from "@/lib/api";
 
 const TYPE_TABS = [
-  { label: "Check-ins", value: "checkins" },
   { label: "Notes", value: "notes" },
+  { label: "Check-ins", value: "checkins" },
+  { label: "Settings", value: "settings" },
 ];
 
 interface EntriesPageContentProps {
@@ -40,8 +42,8 @@ export function EntriesPageContent({
   initialEntries,
   initialCursor,
 }: EntriesPageContentProps) {
-  const [entries, setEntries] = useState<EntryResponse[]>(initialEntries);
-  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [entries, setEntries] = useState<EntryResponse[]>(initialEntries ?? []);
+  const [cursor, setCursor] = useState<string | null>(initialCursor ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [noteFolders, setNoteFolders] = useState<BrowseFolderItem[]>([]);
@@ -58,12 +60,12 @@ export function EntriesPageContent({
   const pathname = usePathname();
 
   const urlView = searchParams.get("view");
-  const view: "checkins" | "notes" =
-    urlView === "checkins" ? "checkins" : "notes";
+  const view: "checkins" | "notes" | "settings" =
+    urlView === "checkins" ? "checkins" : urlView === "settings" ? "settings" : "notes";
   const folderFromUrl = normalizeFolderPath(searchParams.get("folder"));
 
   const setUrlState = useCallback(
-    (nextView: "checkins" | "notes", folder?: string | null) => {
+    (nextView: "checkins" | "notes" | "settings", folder?: string | null) => {
       const next = new URLSearchParams(searchParams.toString());
       next.set("view", nextView);
       if (nextView === "notes" && folder) {
@@ -80,9 +82,9 @@ export function EntriesPageContent({
     async (path: string | null) => {
       try {
         const data = await browseNotes(path ?? undefined);
-        setNoteFolders(data.folders);
-        setNoteEntries(data.notes);
-        setCurrentFolderPath(data.currentPath);
+        setNoteFolders(data.folders ?? []);
+        setNoteEntries(data.notes ?? []);
+        setCurrentFolderPath(data.currentPath ?? path);
       } catch {
         setNoteFolders([]);
         setNoteEntries([]);
@@ -97,11 +99,13 @@ export function EntriesPageContent({
     void loadNotes(folderFromUrl);
   }, [view, folderFromUrl, loadNotes]);
 
+  const isSettings = view === "settings";
+
   const filtered = useMemo(() => {
-    let result =
+    let result: EntryResponse[] =
       view === "notes"
-        ? noteEntries
-        : entries.filter((e) => e.type === "checkin");
+        ? (noteEntries ?? [])
+        : (entries ?? []).filter((e) => e.type === "checkin");
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -147,7 +151,7 @@ export function EntriesPageContent({
   }));
 
   const checkins = useMemo(
-    () => entries.filter((e) => e.type === "checkin"),
+    () => (entries ?? []).filter((e) => e.type === "checkin"),
     [entries],
   );
 
@@ -165,34 +169,38 @@ export function EntriesPageContent({
             <Heading level={1} size="3xl" weight="bold">
               My Diary
             </Heading>
-            <Text color="muted" size="sm">
-              {view === "notes"
-                ? `${filtered.length} ${filtered.length === 1 ? "note" : "notes"}`
-                : `${checkins.length} ${checkins.length === 1 ? "check-in" : "check-ins"}`}
-            </Text>
+            {!isSettings && (
+              <Text color="muted" size="sm">
+                {view === "notes"
+                  ? `${(filtered ?? []).length} ${(filtered ?? []).length === 1 ? "note" : "notes"}`
+                  : `${(checkins ?? []).length} ${(checkins ?? []).length === 1 ? "check-in" : "check-ins"}`}
+              </Text>
+            )}
           </Stack>
 
           {/* Search */}
-          <Input
-            name="search"
-            label={view === "notes" ? "Search notes in this folder" : "Search entries"}
-            placeholder={
-              view === "notes"
-                ? "Search notes by title and content…"
-                : "Search by title, content, emotions, triggers or affirmations…"
-            }
-            type="search"
-            variant="secondary"
-            onChange={setSearchQuery}
-            defaultValue={searchQuery}
-          />
+          {!isSettings && (
+            <Input
+              name="search"
+              label={view === "notes" ? "Search notes in this folder" : "Search entries"}
+              placeholder={
+                view === "notes"
+                  ? "Search notes by title and content…"
+                  : "Search by title, content, emotions, triggers or affirmations…"
+              }
+              type="search"
+              variant="secondary"
+              onChange={setSearchQuery}
+              defaultValue={searchQuery}
+            />
+          )}
 
           {/* Type filter tabs */}
           <Tabs
             key={`tabs-${view}`}
             tabs={tabs}
             onTabClick={(next) => {
-              if (next === "checkins" || next === "notes") {
+              if (next === "checkins" || next === "notes" || next === "settings") {
                 setUrlState(next, next === "notes" ? currentFolderPath : null);
               }
             }}
@@ -250,9 +258,9 @@ export function EntriesPageContent({
                 </Stack>
               </div>
 
-              {noteFolders.length > 0 && (
+              {(noteFolders ?? []).length > 0 && (
                 <Stack direction="vertical" gap="3">
-                  {noteFolders.map((folder) => (
+                  {(noteFolders ?? []).map((folder) => (
                     <FolderCard
                       key={folder.id}
                       folder={folder}
@@ -275,8 +283,11 @@ export function EntriesPageContent({
           )}
         </Stack>
 
+        {/* Settings tab */}
+        {isSettings && <SettingsContent />}
+
         {/* Entries list */}
-        {filtered.length === 0 ? (
+        {!isSettings && ((filtered ?? []).length === 0 ? (
           <div className="flex flex-col items-center gap-5 py-16 text-center">
             <Text color="muted" size="lg">
               {searchQuery
@@ -290,14 +301,14 @@ export function EntriesPageContent({
           </div>
         ) : (
           <Stack direction="vertical" gap="4">
-            {filtered.map((entry) => (
+            {(filtered ?? []).map((entry) => (
               <EntryCard key={entry.id} entry={entry} />
             ))}
           </Stack>
-        )}
+        ))}
 
         {/* Load more (checkins only, loads from the paginated entries list) */}
-        {cursor && !searchQuery && view === "checkins" && (
+        {!isSettings && cursor && !searchQuery && view === "checkins" && (
           <div className="flex justify-center pt-2">
             {isLoading ? (
               <Spinner size="md" />

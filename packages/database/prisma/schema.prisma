@@ -22,12 +22,21 @@ enum RefType {
   pleasant
 }
 
+enum Permission {
+  read
+  write
+  both
+}
+
 model Entry {
   id          String      @id
   type        EntryType
   localDate   String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  // Owner — null means legacy entry (pre-auth), visible to any authenticated user
+  ownerId     String?
 
   // Note fields (null for check-ins)
   title       String?
@@ -36,6 +45,10 @@ model Entry {
   wordCount   Int?
   noteFolderId String?
   noteFolder   NoteFolder? @relation(fields: [noteFolderId], references: [id], onDelete: SetNull)
+  projectId    String?
+  project      Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tags         Tag[]       @relation("EntryTags")
+  accessList   AccessList[]
 
   // Check-in fields (null / empty for notes)
   mood                  Int?
@@ -52,7 +65,35 @@ model Entry {
   @@index([createdAt])
   @@index([localDate])
   @@index([noteFolderId])
+  @@index([projectId])
+  @@index([ownerId])
   @@map("entries")
+}
+
+model Project {
+  id          String   @id
+  ownerId     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  entries     Entry[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@map("projects")
+}
+
+model Tag {
+  id        String   @id
+  ownerId   String
+  name      String
+  createdAt DateTime @default(now())
+  entries   Entry[]  @relation("EntryTags")
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@map("tags")
 }
 
 model NoteFolder {
@@ -72,20 +113,41 @@ model NoteFolder {
 
 model Emotion {
   id        String   @id
-  label     String   @unique
+  ownerId   String
+  label     String
   type      RefType
   createdAt DateTime @default(now())
 
+  @@unique([ownerId, label])
+  @@index([ownerId])
   @@map("emotions")
 }
 
 model Trigger {
   id        String   @id
-  label     String   @unique
+  ownerId   String
+  label     String
   type      RefType
   createdAt DateTime @default(now())
 
+  @@unique([ownerId, label])
+  @@index([ownerId])
   @@map("triggers")
+}
+
+model AccessList {
+  id         String     @id
+  entryId    String
+  userId     String
+  permission Permission
+  createdAt  DateTime   @default(now())
+
+  entry      Entry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, userId])
+  @@index([entryId])
+  @@index([userId])
+  @@map("access_list")
 }
 
 model OutboxEvent {

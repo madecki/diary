@@ -50,11 +50,31 @@ test.describe("Entries List", () => {
     await expect(page.getByRole("button", { name: "All" })).not.toBeVisible();
     await expect(page.getByRole("button", { name: "Check-ins" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Notes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   });
 
   test("notes tab is active by default", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByPlaceholder("Search notes by title and content…")).toBeVisible();
+  });
+
+  test("settings tab shows emotions and triggers sections", async ({ page }) => {
+    await page.goto("/?view=settings");
+
+    await expect(page.getByRole("heading", { name: "Check-in options" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Emotions" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Triggers" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Notes options" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tags" })).toBeVisible();
+  });
+
+  test("settings tab hides search input", async ({ page }) => {
+    await page.goto("/?view=settings");
+
+    await expect(
+      page.getByPlaceholder("Search notes by title and content…"),
+    ).not.toBeVisible();
   });
 });

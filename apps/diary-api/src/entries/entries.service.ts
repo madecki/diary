@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from "@nestjs/common";
 import type { Entry, NoteFolder, Prisma } from "@prisma/client";
 import { ulid } from "ulidx";
 import {
@@ -15,7 +15,6 @@ import {
   type DiaryEventName,
   UpdateCheckinSchema,
   UpdateNoteSchema,
-  DEFAULT_ACTOR_USER_ID,
   EVENT_VERSION,
   EVENT_SOURCE,
   EVENT_SCHEMA,
@@ -23,13 +22,24 @@ import {
 import { PrismaService } from "../prisma/prisma.service.js";
 
 type TxClient = Parameters<Parameters<PrismaService["$transaction"]>[0]>[0];
-type EntryWithFolder = Entry & { noteFolder?: Pick<NoteFolder, "path"> | null };
+
+type EntryInclude = Entry & {
+  noteFolder?: Pick<NoteFolder, "path"> | null;
+  project?: { id: string; name: string } | null;
+  tags?: { id: string; name: string }[];
+};
+
+const ENTRY_INCLUDE = {
+  noteFolder: { select: { path: true } },
+  project: { select: { id: true, name: true } },
+  tags: { select: { id: true, name: true } },
+} as const;
 
 @Injectable()
 export class EntriesService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async createCheckin(input: CreateCheckinInput): Promise<EntryResponse> {
+  async createCheckin(input: CreateCheckinInput, actorUserId: string): Promise<EntryResponse> {
     const id = ulid();
     const localDate = input.localDate ?? todayLocal();
 
@@ -50,6 +60,7 @@ export class EntriesService {
         data: {
           id,
           type: "checkin",
+          ownerId: actorUserId,
           mood: input.mood,
           emotions: input.emotions,
           triggers: input.triggers,
@@ -57,9 +68,10 @@ export class EntriesService {
           localDate,
           ...typeSpecificData,
         },
+        include: ENTRY_INCLUDE,
       });
 
-      await this.writeOutboxEvent(tx, entry, "diary.entry.created");
+      await this.writeOutboxEvent(tx, entry, "diary.entry.created", actorUserId);
       return toResponse(entry);
     });
   }
@@ -104,7 +116,7 @@ export class EntriesService {
           type: "note",
           noteFolderId: currentFolder?.id ?? null,
         },
-        include: { noteFolder: { select: { path: true } } },
+        include: ENTRY_INCLUDE,
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       }),
     ]);
@@ -143,7 +155,7 @@ export class EntriesService {
     await this.prisma.noteFolder.delete({ where: { id: folder.id } });
   }
 
-  async createNote(input: CreateNoteInput): Promise<EntryResponse> {
+  async createNote(input: CreateNoteInput, actorUserId: string): Promise<EntryResponse> {
     const id = ulid();
     const localDate = input.localDate ?? todayLocal();
 
@@ -153,40 +165,58 @@ export class EntriesService {
         data: {
           id,
           type: "note",
+          ownerId: actorUserId,
           contentJson: input.contentJson as Prisma.InputJsonValue,
           plainText: input.plainText,
           wordCount: input.wordCount,
           title: input.title ?? null,
           noteFolderId: folder?.id ?? null,
           localDate,
+          ...(input.projectId ? { projectId: input.projectId } : {}),
+          ...(input.tagIds && input.tagIds.length > 0
+            ? { tags: { connect: input.tagIds.map((tagId) => ({ id: tagId })) } }
+            : {}),
         },
-        include: { noteFolder: { select: { path: true } } },
+        include: ENTRY_INCLUDE,
       });
 
-      await this.writeOutboxEvent(tx, entry, "diary.entry.created");
+      await this.writeOutboxEvent(tx, entry, "diary.entry.created", actorUserId);
       return toResponse(entry);
     });
   }
 
-  async getEntry(id: string): Promise<EntryResponse> {
+  async getEntry(id: string, actorUserId: string): Promise<EntryResponse> {
     const entry = await this.prisma.entry.findUnique({
       where: { id },
-      include: { noteFolder: { select: { path: true } } },
+      include: ENTRY_INCLUDE,
     });
     if (!entry) throw new NotFoundException(`Entry ${id} not found`);
+    await this.assertReadAccess(entry, actorUserId);
     return toResponse(entry);
   }
 
-  async listEntries(query: ListEntriesQuery): Promise<ListEntriesResponse> {
-    const where: Prisma.EntryWhereInput = {};
-    if (query.type) where.type = query.type;
-    if (query.cursor) where.id = { lt: query.cursor };
+  async listEntries(query: ListEntriesQuery, actorUserId: string): Promise<ListEntriesResponse> {
+    // Only return entries the actor owns or has been explicitly granted read access to.
+    // Entries without an ownerId (pre-auth legacy data) are invisible until assigned
+    // via `pnpm db:assign-owner`.
+    const where: Prisma.EntryWhereInput = {
+      AND: [
+        ...(query.type ? [{ type: query.type }] : []),
+        ...(query.cursor ? [{ id: { lt: query.cursor } }] : []),
+        {
+          OR: [
+            { ownerId: actorUserId },
+            { accessList: { some: { userId: actorUserId, permission: { in: ["read", "both"] } } } },
+          ],
+        },
+      ],
+    };
 
     const rows = await this.prisma.entry.findMany({
       where,
       orderBy: { id: "desc" },
       take: query.limit + 1,
-      include: { noteFolder: { select: { path: true } } },
+      include: ENTRY_INCLUDE,
     });
 
     const hasMore = rows.length > query.limit;
@@ -199,22 +229,26 @@ export class EntriesService {
     };
   }
 
-  async deleteEntry(id: string): Promise<void> {
+  async deleteEntry(id: string, actorUserId: string): Promise<void> {
     const existing = await this.prisma.entry.findUnique({
       where: { id },
-      include: { noteFolder: { select: { path: true } } },
+      include: ENTRY_INCLUDE,
     });
     if (!existing) throw new NotFoundException(`Entry ${id} not found`);
+    if (existing.ownerId !== actorUserId) {
+      throw new ForbiddenException("Only the owner can delete this entry");
+    }
 
     await this.prisma.$transaction(async (tx) => {
-      await this.writeOutboxEvent(tx, existing, "diary.entry.deleted");
+      await this.writeOutboxEvent(tx, existing, "diary.entry.deleted", actorUserId);
       await tx.entry.delete({ where: { id } });
     });
   }
 
-  async updateEntry(id: string, body: unknown): Promise<EntryResponse> {
+  async updateEntry(id: string, body: unknown, actorUserId: string): Promise<EntryResponse> {
     const existing = await this.prisma.entry.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`Entry ${id} not found`);
+    await this.assertWriteAccess(existing, actorUserId);
 
     if (existing.type === "checkin") {
       const data = UpdateCheckinSchema.parse(body);
@@ -252,9 +286,10 @@ export class EntriesService {
             ...(data.localDate && { localDate: data.localDate }),
             ...typeSpecificData,
           },
+          include: ENTRY_INCLUDE,
         });
 
-        await this.writeOutboxEvent(tx, updated, "diary.entry.updated");
+        await this.writeOutboxEvent(tx, updated, "diary.entry.updated", actorUserId);
         return toResponse(updated);
       });
     }
@@ -282,21 +317,48 @@ export class EntriesService {
           ...(data.wordCount !== undefined && { wordCount: data.wordCount }),
           ...(data.localDate !== undefined && { localDate: data.localDate }),
           ...(noteFolderId !== undefined && { noteFolderId }),
+          ...(data.projectId !== undefined && { projectId: data.projectId }),
+          ...(data.tagIds !== undefined && {
+            tags: { set: data.tagIds.map((tagId) => ({ id: tagId })) },
+          }),
         },
-        include: { noteFolder: { select: { path: true } } },
+        include: ENTRY_INCLUDE,
       });
 
-      await this.writeOutboxEvent(tx, updated, "diary.entry.updated");
+      await this.writeOutboxEvent(tx, updated, "diary.entry.updated", actorUserId);
       return toResponse(updated);
     });
+  }
+
+  // ── Access control helpers ───────────────────────────────────────
+
+  private async assertReadAccess(entry: { id: string; ownerId: string | null }, userId: string): Promise<void> {
+    if (entry.ownerId === userId) return;
+    const access = await this.prisma.accessList.findUnique({
+      where: { entryId_userId: { entryId: entry.id, userId } },
+    });
+    if (!access || access.permission === "write") {
+      throw new ForbiddenException("Access denied");
+    }
+  }
+
+  private async assertWriteAccess(entry: { id: string; ownerId: string | null }, userId: string): Promise<void> {
+    if (entry.ownerId === userId) return;
+    const access = await this.prisma.accessList.findUnique({
+      where: { entryId_userId: { entryId: entry.id, userId } },
+    });
+    if (!access || access.permission === "read") {
+      throw new ForbiddenException("Access denied");
+    }
   }
 
   // ── Outbox helper ───────────────────────────────────────────────
 
   private async writeOutboxEvent(
     tx: TxClient,
-    entry: EntryWithFolder,
+    entry: EntryInclude,
     eventName: DiaryEventName,
+    actorUserId: string,
   ): Promise<void> {
     const eventId = ulid();
     const occurredAt = new Date();
@@ -316,7 +378,7 @@ export class EntriesService {
         aggregateId: entry.id,
         aggregateType: entry.type,
         aggregateVersion,
-        actorUserId: DEFAULT_ACTOR_USER_ID,
+        actorUserId,
         payload: {},
       },
     });
@@ -330,7 +392,7 @@ export class EntriesService {
         type: entry.type as "checkin" | "note",
         id: entry.id,
       },
-      actor: { userId: DEFAULT_ACTOR_USER_ID },
+      actor: { userId: actorUserId },
       globalSequence: Number(outboxRow.globalSequence),
       aggregateVersion,
       data: {
@@ -343,7 +405,7 @@ export class EntriesService {
           plainText: entry.plainText,
           wordCount: entry.wordCount,
           noteFolderId: entry.noteFolderId,
-          noteFolderPath: (entry as EntryWithFolder).noteFolder?.path ?? null,
+          noteFolderPath: entry.noteFolder?.path ?? null,
           mood: entry.mood,
           emotions: entry.emotions,
           triggers: entry.triggers,
@@ -466,7 +528,7 @@ function todayLocal(): string {
   return new Date().toISOString().split("T")[0]!;
 }
 
-function toResponse(entry: EntryWithFolder): EntryResponse {
+function toResponse(entry: EntryInclude): EntryResponse {
   return {
     id: entry.id,
     type: entry.type,
@@ -479,6 +541,9 @@ function toResponse(entry: EntryWithFolder): EntryResponse {
     wordCount: entry.wordCount,
     noteFolderId: entry.noteFolderId,
     noteFolderPath: entry.noteFolder?.path ?? null,
+    projectId: entry.projectId ?? null,
+    project: entry.project ?? null,
+    tags: entry.tags ?? [],
     mood: entry.mood,
     emotions: entry.emotions,
     triggers: entry.triggers,

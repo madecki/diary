@@ -76,6 +76,8 @@ export const CreateNoteSchema = z.object({
   wordCount: z.number().int().min(0),
   title: z.string().max(200).optional(),
   folderPath: z.string().trim().min(1).optional(),
+  projectId: z.string().optional(),
+  tagIds: z.array(z.string()).optional(),
   localDate: localDateSchema,
 });
 export type CreateNoteInput = z.infer<typeof CreateNoteSchema>;
@@ -86,6 +88,8 @@ export const UpdateNoteSchema = z.object({
   wordCount: z.number().int().min(0).optional(),
   title: z.string().max(200).nullable().optional(),
   folderPath: z.string().trim().min(1).nullable().optional(),
+  projectId: z.string().nullable().optional(),
+  tagIds: z.array(z.string()).optional(),
   localDate: localDateSchema,
 });
 export type UpdateNoteInput = z.infer<typeof UpdateNoteSchema>;
