@@ -23,7 +23,7 @@ import {
   fetchProjects,
   fetchTags,
 } from "@/lib/api";
-import { todayLocalDate } from "@/lib/utils";
+import { todayLocalDateTime } from "@/lib/utils";
 import { EditorWrapper } from "@/components/editor/EditorWrapper";
 import { SuccessToast } from "./SuccessToast";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
@@ -39,6 +39,9 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
   const isEdit = !!entry;
 
   const [title, setTitle] = useState(entry?.title ?? "");
+  const [dateTime, setDateTime] = useState<string>(
+    entry?.localDateTime ?? todayLocalDateTime(),
+  );
   const folderPath = isEdit ? (entry?.noteFolderPath ?? null) : (initialFolderPath ?? null);
 
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
@@ -117,6 +120,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           folderPath: folderPath,
           projectId: projectId,
           tagIds,
+          localDateTime: dateTime,
         });
       } else {
         await createNote({
@@ -127,7 +131,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           folderPath: folderPath ?? undefined,
           projectId: projectId ?? undefined,
           tagIds: tagIds.length > 0 ? tagIds : undefined,
-          localDate: todayLocalDate(),
+          localDateTime: dateTime,
         });
       }
 
@@ -169,6 +173,18 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
         {/* Form */}
         <div className="bg-darkgray rounded-sm border border-gray/30 p-6 sm:p-8">
           <Stack direction="vertical" gap="8">
+            {/* Date & time */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-icongray">Date & time</label>
+              <input
+                type="datetime-local"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+                disabled={isSaving}
+                className="w-full bg-gray/30 border border-gray/50 rounded-sm px-3 py-2 text-sm text-white placeholder:text-lightgray focus:outline-none focus:border-lightgray/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
             {/* Title */}
             <div className="flex flex-col gap-2">
               <Input

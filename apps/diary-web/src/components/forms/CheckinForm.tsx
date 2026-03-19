@@ -22,12 +22,15 @@ import {
   deleteEntry,
   fetchEmotions,
   fetchTriggers,
+  createEmotion,
+  createTrigger,
 } from "@/lib/api";
-import { todayLocalDate } from "@/lib/utils";
+import { todayLocalDateTime } from "@/lib/utils";
 import { MoodPicker } from "./MoodPicker";
 import { OptionTagPicker } from "./OptionTagPicker";
 import { SuccessToast } from "./SuccessToast";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { AddEmotionTriggerForm } from "./AddEmotionTriggerForm";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -39,6 +42,44 @@ function toTriple(arr: string[] | undefined | null): Triple {
 
 function defaultCheckInType(): "morning" | "evening" {
   return new Date().getHours() < 15 ? "morning" : "evening";
+}
+
+// ── Add emotion/trigger modal ───────────────────────────────────────
+
+interface AddEmotionTriggerModalProps {
+  kind: "emotion" | "trigger";
+  onClose: () => void;
+  onAdd: (label: string, type: "difficult" | "neutral" | "pleasant") => Promise<void>;
+}
+
+function AddEmotionTriggerModal({
+  kind,
+  onClose,
+  onAdd,
+}: AddEmotionTriggerModalProps) {
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="absolute inset-0 bg-primary/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-sm rounded-sm bg-darkgray border border-gray/50 p-7">
+        <AddEmotionTriggerForm kind={kind} onAdd={onAdd} onCancel={onClose} />
+      </div>
+    </div>
+  );
 }
 
 // ── ThreeInputs ──────────────────────────────────────────────────────
@@ -129,22 +170,32 @@ export function CheckinForm({ entry }: CheckinFormProps) {
     entry?.whatDidILearnToday ?? "",
   );
 
+  const [dateTime, setDateTime] = useState<string>(
+    entry?.localDateTime ?? todayLocalDateTime(),
+  );
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [addModal, setAddModal] = useState<"emotion" | "trigger" | null>(null);
+
+  const loadEmotionsAndTriggers = useCallback(async () => {
+    setOptionsLoading(true);
+    try {
+      const [emos, trigs] = await Promise.all([fetchEmotions(), fetchTriggers()]);
+      setEmotionOptions(emos);
+      setTriggerOptions(trigs);
+    } catch {
+      // options unavailable — fields remain empty
+    } finally {
+      setOptionsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    Promise.all([fetchEmotions(), fetchTriggers()])
-      .then(([emos, trigs]) => {
-        setEmotionOptions(emos);
-        setTriggerOptions(trigs);
-      })
-      .catch(() => {
-        // options unavailable — fields remain empty, user can still proceed
-      })
-      .finally(() => setOptionsLoading(false));
-  }, []);
+    void loadEmotionsAndTriggers();
+  }, [loadEmotionsAndTriggers]);
 
   function handleTypeChange(newType: "morning" | "evening") {
     if (newType === checkInType) return;
@@ -173,6 +224,22 @@ export function CheckinForm({ entry }: CheckinFormProps) {
     },
     [errors],
   );
+
+  async function handleAddEmotion(label: string, type: "difficult" | "neutral" | "pleasant") {
+    await createEmotion({ label, type });
+    await loadEmotionsAndTriggers();
+    setAddModal(null);
+    setEmotions((prev) => (prev.length < 5 ? [...prev, label] : prev));
+    setErrors((e) => (e["emotions"] ? { ...e, emotions: "" } : e));
+  }
+
+  async function handleAddTrigger(label: string, type: "difficult" | "neutral" | "pleasant") {
+    await createTrigger({ label, type });
+    await loadEmotionsAndTriggers();
+    setAddModal(null);
+    setTriggers((prev) => (prev.length < 5 ? [...prev, label] : prev));
+    setErrors((e) => (e["triggers"] ? { ...e, triggers: "" } : e));
+  }
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -219,6 +286,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
             whatImGratefulFor,
             whatWouldMakeDayGreat,
             dailyAffirmation: dailyAffirmation.trim(),
+            localDateTime: dateTime,
           });
         } else {
           await updateEntry(entry.id, {
@@ -226,6 +294,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
             checkInType: "evening",
             highlightsOfTheDay,
             whatDidILearnToday: whatDidILearnToday.trim(),
+            localDateTime: dateTime,
           });
         }
       } else {
@@ -236,7 +305,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
             whatImGratefulFor,
             whatWouldMakeDayGreat,
             dailyAffirmation: dailyAffirmation.trim(),
-            localDate: todayLocalDate(),
+            localDateTime: dateTime,
           });
         } else {
           await createCheckin({
@@ -244,7 +313,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
             checkInType: "evening",
             highlightsOfTheDay,
             whatDidILearnToday: whatDidILearnToday.trim(),
-            localDate: todayLocalDate(),
+            localDateTime: dateTime,
           });
         }
       }
@@ -288,6 +357,18 @@ export function CheckinForm({ entry }: CheckinFormProps) {
         {/* Form */}
         <div className="bg-darkgray rounded-sm border border-gray/30 p-6 sm:p-8">
           <Stack direction="vertical" gap="8">
+            {/* Date & time */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-icongray">Date & time</label>
+              <input
+                type="datetime-local"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+                disabled={isSaving}
+                className="w-full bg-gray/30 border border-gray/50 rounded-sm px-3 py-2 text-sm text-white placeholder:text-lightgray focus:outline-none focus:border-lightgray/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
             {/* Mood */}
             <MoodPicker
               value={mood}
@@ -312,6 +393,8 @@ export function CheckinForm({ entry }: CheckinFormProps) {
               isLoading={optionsLoading}
               mood={mood}
               disabled={isSaving}
+              addNewLabel="Add emotion"
+              onAddNew={() => setAddModal("emotion")}
             />
 
             {/* Triggers */}
@@ -325,6 +408,8 @@ export function CheckinForm({ entry }: CheckinFormProps) {
               isLoading={optionsLoading}
               mood={mood}
               disabled={isSaving}
+              addNewLabel="Add trigger"
+              onAddNew={() => setAddModal("trigger")}
             />
 
             <Hr />
@@ -516,6 +601,14 @@ export function CheckinForm({ entry }: CheckinFormProps) {
             setShowDeleteModal(false);
             router.push("/");
           }}
+        />
+      )}
+
+      {addModal !== null && (
+        <AddEmotionTriggerModal
+          kind={addModal}
+          onClose={() => setAddModal(null)}
+          onAdd={addModal === "emotion" ? handleAddEmotion : handleAddTrigger}
         />
       )}
     </Container>

@@ -29,6 +29,9 @@ interface OptionTagPickerProps {
   isLoading?: boolean;
   mood?: number | null;
   disabled?: boolean;
+  /** When set, shows a gray "Add new" button (same style as tags). */
+  addNewLabel?: string;
+  onAddNew?: () => void;
 }
 
 export function OptionTagPicker({
@@ -41,6 +44,8 @@ export function OptionTagPicker({
   isLoading,
   mood = null,
   disabled,
+  addNewLabel,
+  onAddNew,
 }: OptionTagPickerProps) {
   function toggleOption(optionLabel: string) {
     if (value.includes(optionLabel)) {
@@ -105,6 +110,16 @@ export function OptionTagPicker({
               />
             );
           })}
+          {addNewLabel != null && onAddNew != null && (
+            <Button
+              size="sm"
+              variant="primary"
+              label={addNewLabel}
+              type="button"
+              disabled={disabled}
+              onClick={onAddNew}
+            />
+          )}
         </div>
       )}
 

@@ -7,6 +7,18 @@ export function formatDate(dateString: string): string {
   }).format(date);
 }
 
+/** Format YYYY-MM-DDTHH:mm for display (e.g. "Mar 17, 2026, 9:30 AM") */
+export function formatDateTime(dateTimeString: string): string {
+  const date = new Date(dateTimeString);
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function truncate(text: string, maxLength = 160): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength).trimEnd()}…`;
@@ -18,6 +30,17 @@ export function todayLocalDate(): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/** Returns current local date + time in YYYY-MM-DDTHH:mm for datetime-local input and API */
+export function todayLocalDateTime(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 export function moodLabel(mood: number): string {

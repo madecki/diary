@@ -147,6 +147,7 @@ export function EntriesPageContent({
 
   const tabs = TYPE_TABS.map((t) => ({
     ...t,
+    id: t.value,
     isActive: t.value === view,
   }));
 

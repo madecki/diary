@@ -2,19 +2,61 @@
 
 import { useState } from "react";
 import { Button, ButtonTransparent, GradientButton, Heading, Input, Spinner, Text } from "@madecki/ui";
-import type { ProjectResponse } from "@diary/shared";
+import type { ProjectColor, ProjectResponse } from "@diary/shared";
+import { PROJECT_COLORS } from "@diary/shared";
 import { createProject, updateProject, deleteProject } from "@/lib/api";
+
+// ── Color picker (matches @madecki/ui Button variants) ─────────────────
+
+const COLOR_CLASS: Record<ProjectColor, { chip: string }> = {
+  primary: { chip: "bg-primary" },
+  success: { chip: "bg-success" },
+  warning: { chip: "bg-warning" },
+  danger: { chip: "bg-danger" },
+  info: { chip: "bg-info" },
+};
+
+function ColorPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ProjectColor;
+  onChange: (c: ProjectColor) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-lightgray">Color</label>
+      <div className="flex gap-2 flex-wrap">
+        {PROJECT_COLORS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            disabled={disabled}
+            aria-label={`Color ${c}`}
+            onClick={() => onChange(c)}
+            className={`h-8 w-8 rounded-sm ${COLOR_CLASS[c].chip} transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
+              value === c ? "ring-2 ring-white ring-offset-2 ring-offset-darkgray" : "opacity-80 hover:opacity-100"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Add Form ─────────────────────────────────────────────────────────
 
 interface AddFormProps {
-  onAdd: (name: string, description: string) => Promise<void>;
+  onAdd: (name: string, description: string, color: ProjectColor) => Promise<void>;
   onCancel: () => void;
 }
 
 function AddForm({ onAdd, onCancel }: AddFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [color, setColor] = useState<ProjectColor>("primary");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,7 +69,7 @@ function AddForm({ onAdd, onCancel }: AddFormProps) {
     setIsSaving(true);
     setError("");
     try {
-      await onAdd(trimmedName, description.trim());
+      await onAdd(trimmedName, description.trim(), color);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
       setIsSaving(false);
@@ -57,6 +99,7 @@ function AddForm({ onAdd, onCancel }: AddFormProps) {
           onChange={setDescription}
           defaultValue={description}
         />
+        <ColorPicker value={color} onChange={setColor} disabled={isSaving} />
       </div>
       {error && (
         <Text size="sm" color="danger">
@@ -79,13 +122,14 @@ function AddForm({ onAdd, onCancel }: AddFormProps) {
 
 interface EditFormProps {
   project: ProjectResponse;
-  onSave: (id: string, name: string, description: string | null) => Promise<void>;
+  onSave: (id: string, name: string, description: string | null, color: ProjectColor) => Promise<void>;
   onCancel: () => void;
 }
 
 function EditForm({ project, onSave, onCancel }: EditFormProps) {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? "");
+  const [color, setColor] = useState<ProjectColor>(project.color);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -98,7 +142,7 @@ function EditForm({ project, onSave, onCancel }: EditFormProps) {
     setIsSaving(true);
     setError("");
     try {
-      await onSave(project.id, trimmedName, description.trim() || null);
+      await onSave(project.id, trimmedName, description.trim() || null, color);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
       setIsSaving(false);
@@ -124,6 +168,7 @@ function EditForm({ project, onSave, onCancel }: EditFormProps) {
         onChange={setDescription}
         defaultValue={description}
       />
+      <ColorPicker value={color} onChange={setColor} disabled={isSaving} />
       {error && (
         <Text size="sm" color="danger">
           {error}
@@ -149,7 +194,7 @@ interface ProjectCardProps {
   onDelete: (p: ProjectResponse) => void;
   isEditing: boolean;
   isDeleting: boolean;
-  onSave: (id: string, name: string, description: string | null) => Promise<void>;
+  onSave: (id: string, name: string, description: string | null, color: ProjectColor) => Promise<void>;
   onCancelEdit: () => void;
 }
 
@@ -168,8 +213,14 @@ function ProjectCard({
         <EditForm project={project} onSave={onSave} onCancel={onCancelEdit} />
       ) : (
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1 min-w-0">
-            <Text weight="semibold">{project.name}</Text>
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`shrink-0 h-3 w-3 rounded-sm ${COLOR_CLASS[project.color].chip}`}
+                aria-hidden
+              />
+              <Text weight="semibold">{project.name}</Text>
+            </div>
             {project.description && (
               <Text size="sm" color="muted">
                 {project.description}
@@ -214,14 +265,14 @@ export function ProjectsSettings({ projects, isLoading, onRefresh }: ProjectsSet
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
 
-  async function handleAdd(name: string, description: string) {
-    await createProject({ name, description: description || undefined });
+  async function handleAdd(name: string, description: string, color: ProjectColor) {
+    await createProject({ name, description: description || undefined, color });
     setShowAdd(false);
     onRefresh();
   }
 
-  async function handleSave(id: string, name: string, description: string | null) {
-    await updateProject(id, { name, description });
+  async function handleSave(id: string, name: string, description: string | null, color: ProjectColor) {
+    await updateProject(id, { name, description, color });
     setEditingId(null);
     onRefresh();
   }

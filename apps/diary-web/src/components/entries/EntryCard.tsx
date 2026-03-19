@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Heading, Text, Stack } from "@madecki/ui";
 import type { EntryResponse } from "@diary/shared";
-import { formatDate, truncate, moodLabel, moodColor } from "@/lib/utils";
+import { formatDateTime, truncate, moodLabel, moodColor } from "@/lib/utils";
 
 interface EntryCardProps {
   entry: EntryResponse;
@@ -23,7 +23,7 @@ function checkinPreview(entry: EntryResponse): string | null {
 
 export function EntryCard({ entry }: EntryCardProps) {
   const isCheckin = entry.type === "checkin";
-  const date = formatDate(entry.createdAt);
+  const dateTime = formatDateTime(entry.localDateTime);
 
   const title = isCheckin ? checkinTitle(entry) : entry.title;
   const preview = isCheckin
@@ -85,9 +85,9 @@ export function EntryCard({ entry }: EntryCardProps) {
               )}
             </Stack>
 
-            {/* Date — suppressHydrationWarning because locale formatting differs between server and client */}
+            {/* Date & time — suppressHydrationWarning because locale formatting differs between server and client */}
             <Text size="sm" color="muted" className="shrink-0 mt-1">
-              <span suppressHydrationWarning>{date}</span>
+              <span suppressHydrationWarning>{dateTime}</span>
             </Text>
           </div>
 

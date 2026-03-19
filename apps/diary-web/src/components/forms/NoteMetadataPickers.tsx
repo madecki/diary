@@ -31,6 +31,7 @@ export function ProjectPicker({
       ) : (
         <div className="flex flex-wrap gap-2">
           <Button
+            id="project-none"
             variant="neutral"
             size="sm"
             isActive={value === null}
@@ -44,7 +45,7 @@ export function ProjectPicker({
             <Button
               key={project.id}
               id={project.id}
-              variant="info"
+              variant={project.color ?? "info"}
               size="sm"
               isActive={value === project.id}
               type="button"
