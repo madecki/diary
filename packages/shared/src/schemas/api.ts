@@ -10,9 +10,9 @@ const ThreeTextsSchema = z
   .length(3)
   .refine(atLeastOneNonEmpty, { message: "At least one item is required" });
 
-const localDateSchema = z
+const localDateTimeSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/) // YYYY-MM-DDTHH:mm
   .optional();
 
 // Common check-in fields (mood + emotions + triggers)
@@ -20,7 +20,7 @@ const CheckinCommonSchema = z.object({
   mood: z.number({ required_error: "Mood is required" }).int().min(1).max(10),
   emotions: z.array(z.string().min(1).max(50)).min(1, "Add at least one emotion").max(5),
   triggers: z.array(z.string().min(1).max(50)).min(1, "Add at least one trigger").max(5),
-  localDate: localDateSchema,
+  localDateTime: localDateTimeSchema,
 });
 
 // ── CheckIn Create ──────────────────────────────────────────────────
@@ -50,7 +50,7 @@ const UpdateCheckinCommonSchema = z.object({
   mood: z.number().int().min(1).max(10).optional(),
   emotions: z.array(z.string().min(1).max(50)).min(1).max(5).optional(),
   triggers: z.array(z.string().min(1).max(50)).min(1).max(5).optional(),
-  localDate: localDateSchema,
+  localDateTime: localDateTimeSchema,
 });
 
 export const UpdateCheckinSchema = z.discriminatedUnion("checkInType", [
@@ -78,7 +78,7 @@ export const CreateNoteSchema = z.object({
   folderPath: z.string().trim().min(1).optional(),
   projectId: z.string().optional(),
   tagIds: z.array(z.string()).optional(),
-  localDate: localDateSchema,
+  localDateTime: localDateTimeSchema,
 });
 export type CreateNoteInput = z.infer<typeof CreateNoteSchema>;
 
@@ -90,7 +90,7 @@ export const UpdateNoteSchema = z.object({
   folderPath: z.string().trim().min(1).nullable().optional(),
   projectId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional(),
-  localDate: localDateSchema,
+  localDateTime: localDateTimeSchema,
 });
 export type UpdateNoteInput = z.infer<typeof UpdateNoteSchema>;
 

@@ -1,30 +1,15 @@
-import { Suspense } from "react";
-import { notFound } from "next/navigation";
-import { Container, Stack, Spinner } from "@madecki/ui";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { Container, Stack, Spinner, Heading, Text, Button } from "@madecki/ui";
 import { fetchEntry } from "@/lib/api";
+import type { EntryResponse } from "@diary/shared";
 import { CheckinForm } from "@/components/forms/CheckinForm";
 import { NoteForm } from "@/components/forms/ShortNoteForm";
+import Link from "next/link";
 
-interface EntryPageProps {
-  params: Promise<{ id: string }>;
-}
-
-async function EntryLoader({ id }: { id: string }) {
-  let entry;
-  try {
-    entry = await fetchEntry(id);
-  } catch {
-    notFound();
-  }
-
-  if (entry.type === "checkin") {
-    return <CheckinForm entry={entry} />;
-  }
-
-  return <NoteForm entry={entry} />;
-}
-
-function EntryFallback() {
+function LoadingFallback() {
   return (
     <Container size="lg" centered>
       <Stack direction="vertical" gap="8" align="center" className="py-16">
@@ -34,12 +19,49 @@ function EntryFallback() {
   );
 }
 
-export default async function EntryPage({ params }: EntryPageProps) {
-  const { id } = await params;
-
+function NotFoundFallback() {
   return (
-    <Suspense fallback={<EntryFallback />}>
-      <EntryLoader id={id} />
-    </Suspense>
+    <Container size="md" centered>
+      <Stack direction="vertical" gap="6" align="center" className="py-20 text-center">
+        <Heading level={1} size="4xl" weight="bold" color="muted">
+          404
+        </Heading>
+        <Stack direction="vertical" gap="2">
+          <Heading level={2} size="xl" weight="semibold">
+            Page not found
+          </Heading>
+          <Text color="muted">
+            This entry may have been deleted or the URL is incorrect.
+          </Text>
+        </Stack>
+        <Link href="/">
+          <Button variant="primary" size="md">
+            Back to diary
+          </Button>
+        </Link>
+      </Stack>
+    </Container>
   );
+}
+
+export default function EntryPage() {
+  const params = useParams<{ id: string }>();
+  const [entry, setEntry] = useState<EntryResponse | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!params.id) return;
+    fetchEntry(params.id)
+      .then(setEntry)
+      .catch(() => setNotFound(true));
+  }, [params.id]);
+
+  if (notFound) return <NotFoundFallback />;
+  if (!entry) return <LoadingFallback />;
+
+  if (entry.type === "checkin") {
+    return <CheckinForm entry={entry} />;
+  }
+
+  return <NoteForm entry={entry} />;
 }

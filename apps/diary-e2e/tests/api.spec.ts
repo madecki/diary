@@ -1,11 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { API_URL } from "../playwright.config";
+import { resetDatabase } from "../db";
 
 /**
  * Direct API tests — exercise diary-api independently of the frontend.
  * These run in the same E2E suite because they require the full stack
  * (Postgres + NATS + diary-api) to be running.
  */
+
+test.beforeEach(async () => {
+  await resetDatabase();
+});
 
 test.describe("API – GET /entries", () => {
   test("returns 200 with entries array and nextCursor", async ({ request }) => {
@@ -41,7 +46,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["Good health", "Great friends", ""],
         whatWouldMakeDayGreat: ["Finish the feature", "", ""],
         dailyAffirmation: "I am focused and productive",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -70,7 +75,7 @@ test.describe("API – POST /entries/checkins", () => {
         triggers: ["music"],
         highlightsOfTheDay: ["Completed the project", "", ""],
         whatDidILearnToday: "Small steps lead to big results",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -105,7 +110,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["", "", ""],
         whatWouldMakeDayGreat: ["Something", "", ""],
         dailyAffirmation: "I am great",
-        localDate: "2026-01-01",
+        localDateTime: "2026-01-01T08:00",
       },
     });
     expect(res.status()).toBe(400);
@@ -121,7 +126,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Focus", "", ""],
         dailyAffirmation: "   ",
-        localDate: "2026-01-01",
+        localDateTime: "2026-01-01T08:00",
       },
     });
     expect(res.status()).toBe(400);
@@ -136,7 +141,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Focus", "", ""],
         dailyAffirmation: "I am great",
-        localDate: "2026-01-01",
+        localDateTime: "2026-01-01T08:00",
       },
     });
     expect(res.status()).toBe(400);
@@ -152,7 +157,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Focus", "", ""],
         dailyAffirmation: "I am great",
-        localDate: "2026-01-01",
+        localDateTime: "2026-01-01T08:00",
       },
     });
     expect(res.status()).toBe(400);
@@ -182,7 +187,7 @@ test.describe("API – POST /entries/checkins", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Focus", "", ""],
         dailyAffirmation: "I am great",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const entry = await res.json();
@@ -197,7 +202,7 @@ test.describe("API – POST /entries/notes", () => {
         contentJson: { blocks: [] },
         plainText: "Quick API test note.",
         wordCount: 4,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -217,7 +222,7 @@ test.describe("API – POST /entries/notes", () => {
         contentJson: { blocks: [] },
         plainText: "Note with a title.",
         wordCount: 4,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -234,7 +239,7 @@ test.describe("API – POST /entries/notes", () => {
         plainText: "with folders",
         wordCount: 2,
         folderPath: "work/blabla/another folder",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -254,7 +259,7 @@ test.describe("API – POST /entries/notes", () => {
         whatImGratefulFor: ["One", "", ""],
         whatWouldMakeDayGreat: ["Two", "", ""],
         dailyAffirmation: "Three",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -290,7 +295,7 @@ test.describe("API – note folders", () => {
         contentJson: { blocks: [] },
         plainText: "root",
         wordCount: 1,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     await request.post(`${API_URL}/entries/notes`, {
@@ -300,7 +305,7 @@ test.describe("API – note folders", () => {
         plainText: "nested",
         wordCount: 1,
         folderPath: "work/blabla",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -328,7 +333,7 @@ test.describe("API – note folders", () => {
         plainText: "nested",
         wordCount: 1,
         folderPath: "work/sub",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -362,7 +367,7 @@ test.describe("API – note folders", () => {
         plainText: "nested",
         wordCount: 1,
         folderPath: "work/blabla",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -393,7 +398,7 @@ test.describe("API – PATCH /entries/:id", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Focus", "", ""],
         dailyAffirmation: "I am ready",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const created = await create.json();
@@ -426,7 +431,7 @@ test.describe("API – GET /entries/:id", () => {
         contentJson: { blocks: [] },
         plainText: "Fetch by id test.",
         wordCount: 4,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const created = await create.json();

@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { API_URL } from "../playwright.config";
+import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
 import { resetDatabase, getEntryCount } from "../db";
 
 async function createNoteViaApi(
@@ -9,14 +10,18 @@ async function createNoteViaApi(
 ): Promise<void> {
   await fetch(`${API_URL}/entries/notes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-service-token": E2E_SERVICE_TOKEN,
+      "x-user-id": E2E_USER_ID,
+    },
     body: JSON.stringify({
       title,
       contentJson: { blocks: [] },
       plainText,
       wordCount: plainText.split(/\s+/).length,
       folderPath,
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
 }

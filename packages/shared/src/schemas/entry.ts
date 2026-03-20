@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProjectColorSchema } from "./reference.js";
 
 export const EntryTypeSchema = z.enum(["checkin", "note"]);
 export type EntryType = z.infer<typeof EntryTypeSchema>;
@@ -9,6 +10,7 @@ export type CheckInType = z.infer<typeof CheckInTypeSchema>;
 export const EntryProjectSchema = z.object({
   id: z.string(),
   name: z.string(),
+  color: ProjectColorSchema,
 });
 export type EntryProject = z.infer<typeof EntryProjectSchema>;
 
@@ -21,7 +23,7 @@ export type EntryTag = z.infer<typeof EntryTagSchema>;
 export const EntryResponseSchema = z.object({
   id: z.string(),
   type: EntryTypeSchema,
-  localDate: z.string(),
+  localDateTime: z.string(), // YYYY-MM-DDTHH:mm
   createdAt: z.string(),
   updatedAt: z.string(),
 

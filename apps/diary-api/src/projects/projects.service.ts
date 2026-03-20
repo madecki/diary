@@ -17,7 +17,13 @@ export class ProjectsService {
     });
     if (existing) throw new ConflictException(`Project "${input.name}" already exists`);
     return this.prisma.project.create({
-      data: { id: ulid(), ownerId: actorUserId, name: input.name, description: input.description ?? null },
+      data: {
+        id: ulid(),
+        ownerId: actorUserId,
+        name: input.name,
+        description: input.description ?? null,
+        color: input.color ?? "primary",
+      },
     });
   }
 
@@ -38,6 +44,7 @@ export class ProjectsService {
       data: {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.color !== undefined ? { color: input.color } : {}),
       },
     });
   }

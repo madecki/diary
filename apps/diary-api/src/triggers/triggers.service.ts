@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from "@nestjs/common";
 import { ulid } from "ulidx";
-import type { CreateTriggerInput, UpdateTriggerInput } from "@diary/shared";
+import { DEFAULT_TRIGGERS, type CreateTriggerInput, type UpdateTriggerInput } from "@diary/shared";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -8,6 +8,17 @@ export class TriggersService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async listTriggers(actorUserId: string) {
+    const count = await this.prisma.trigger.count({ where: { ownerId: actorUserId } });
+    if (count === 0) {
+      const data = DEFAULT_TRIGGERS.map((t) => ({
+        id: `${actorUserId}_${t.idSuffix}`,
+        ownerId: actorUserId,
+        label: t.label,
+        type: t.type,
+      }));
+      await this.prisma.trigger.createMany({ data, skipDuplicates: true });
+    }
+
     const triggers = await this.prisma.trigger.findMany({
       where: { ownerId: actorUserId },
       orderBy: { label: "asc" },

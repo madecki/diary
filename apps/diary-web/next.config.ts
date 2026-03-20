@@ -3,8 +3,9 @@ import type { NextConfig } from "next";
 // Diary-web is served through the gateway at /mfe/diary (iframe-only path).
 // The shell is the top-level document for all /app/* routes; diary is embedded
 // inside the shell's iframe so both share the same origin for httpOnly cookies.
-// Use || so empty string (common in .env) still falls back to the gateway MFE path.
-const basePath = process.env.NEXT_PUBLIC_DIARY_BASE_PATH || "/mfe/diary";
+// Use ?? so that an explicit empty string (e.g. E2E mode) means "no prefix"
+// while an absent env var still defaults to /mfe/diary.
+const basePath = process.env.NEXT_PUBLIC_DIARY_BASE_PATH ?? "/mfe/diary";
 
 // In development, when NOT running via the gateway, point asset URLs at the
 // diary dev server. When running via the gateway (NEXT_PUBLIC_VIA_GATEWAY=true),

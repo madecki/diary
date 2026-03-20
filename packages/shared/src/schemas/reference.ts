@@ -45,10 +45,17 @@ export type UpdateTriggerInput = z.infer<typeof UpdateTriggerSchema>;
 
 // ── Projects ─────────────────────────────────────────────────────────
 
+/** Matches @madecki/ui Button variant for consistent project colors */
+export const ProjectColorSchema = z.enum(["primary", "success", "warning", "danger", "info"]);
+export type ProjectColor = z.infer<typeof ProjectColorSchema>;
+
+export const PROJECT_COLORS: ProjectColor[] = ["primary", "success", "warning", "danger", "info"];
+
 export const ProjectResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  color: ProjectColorSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -57,12 +64,14 @@ export type ProjectResponse = z.infer<typeof ProjectResponseSchema>;
 export const CreateProjectSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500).optional(),
+  color: ProjectColorSchema.optional(),
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 
 export const UpdateProjectSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().max(500).nullable().optional(),
+  color: ProjectColorSchema.optional(),
 });
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
 

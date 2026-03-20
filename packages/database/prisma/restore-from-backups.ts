@@ -42,11 +42,13 @@ async function main() {
       continue;
     }
 
-    const localDate = String(parsed.frontmatter["date"] ?? "").trim();
-    if (!localDate) {
+    const dateRaw = String(parsed.frontmatter["date"] ?? "").trim();
+    if (!dateRaw) {
       skipped++;
       continue;
     }
+    // Support both YYYY-MM-DD (legacy) and YYYY-MM-DDTHH:mm
+    const localDateTime = dateRaw.includes("T") ? dateRaw : `${dateRaw}T00:00`;
 
     const createdAt = toDate(String(parsed.frontmatter["created_at"] ?? ""));
     const updatedAt = toDate(String(parsed.frontmatter["updated_at"] ?? ""));
@@ -56,7 +58,7 @@ async function main() {
     const baseData: Prisma.EntryUncheckedCreateInput = {
       id,
       type,
-      localDate,
+      localDateTime,
       createdAt: createdAt ?? new Date(),
       updatedAt: updatedAt ?? new Date(),
       title: null,

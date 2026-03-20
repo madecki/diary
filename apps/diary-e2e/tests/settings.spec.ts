@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { API_URL } from "../playwright.config";
 import { resetDatabase } from "../db";
 
@@ -24,7 +24,18 @@ test.describe("API – Projects CRUD", () => {
     const body = await res.json();
     expect(body.name).toBe("My Project");
     expect(body.description).toBe("A test project");
+    expect(body.color).toBe("primary"); // default when omitted
     expect(typeof body.id).toBe("string");
+  });
+
+  test("creates a project with color", async ({ request }) => {
+    const res = await request.post(`${API_URL}/projects`, {
+      data: { name: "Colored", description: "A project", color: "success" },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.name).toBe("Colored");
+    expect(body.color).toBe("success");
   });
 
   test("returns 409 for duplicate project name", async ({ request }) => {
@@ -40,12 +51,13 @@ test.describe("API – Projects CRUD", () => {
     const created = await createRes.json();
 
     const updateRes = await request.patch(`${API_URL}/projects/${created.id}`, {
-      data: { name: "New Name", description: "New desc" },
+      data: { name: "New Name", description: "New desc", color: "danger" },
     });
     expect(updateRes.status()).toBe(200);
     const updated = await updateRes.json();
     expect(updated.name).toBe("New Name");
     expect(updated.description).toBe("New desc");
+    expect(updated.color).toBe("danger");
   });
 
   test("deletes a project", async ({ request }) => {
@@ -64,7 +76,7 @@ test.describe("API – Projects CRUD", () => {
 
   test("note can be assigned a project on creation", async ({ request }) => {
     const projRes = await request.post(`${API_URL}/projects`, {
-      data: { name: "Work" },
+      data: { name: "Work", color: "info" },
     });
     const project = await projRes.json();
 
@@ -75,13 +87,14 @@ test.describe("API – Projects CRUD", () => {
         plainText: "Hello",
         wordCount: 1,
         projectId: project.id,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     expect(noteRes.status()).toBe(201);
     const note = await noteRes.json();
     expect(note.projectId).toBe(project.id);
     expect(note.project?.name).toBe("Work");
+    expect(note.project?.color).toBe("info");
   });
 
   test("deleting a project detaches it from notes (SetNull)", async ({ request }) => {
@@ -96,7 +109,7 @@ test.describe("API – Projects CRUD", () => {
         plainText: "Note",
         wordCount: 1,
         projectId: project.id,
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const note = await noteRes.json();
@@ -171,7 +184,7 @@ test.describe("API – Tags CRUD", () => {
         plainText: "Content",
         wordCount: 1,
         tagIds: [tag1.id, tag2.id],
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     expect(noteRes.status()).toBe(201);
@@ -192,7 +205,7 @@ test.describe("API – Tags CRUD", () => {
         plainText: "Note",
         wordCount: 1,
         tagIds: [tag.id],
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const note = await noteRes.json();
@@ -242,6 +255,7 @@ test.describe("Settings UI", () => {
     await page.getByRole("button", { name: "Add project" }).click();
     await page.getByLabel("Name").fill("Work Project");
     await page.getByLabel("Description (optional)").fill("My work notes");
+    await page.getByRole("button", { name: "Color success" }).click();
     await page.getByRole("button", { name: "Create" }).click();
 
     await expect(page.getByText("Work Project")).toBeVisible();

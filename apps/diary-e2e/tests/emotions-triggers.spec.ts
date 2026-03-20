@@ -110,7 +110,7 @@ test.describe("API – POST/PATCH/DELETE /emotions", () => {
         whatImGratefulFor: ["Health", "Family", ""],
         whatWouldMakeDayGreat: ["Productivity", "", ""],
         dailyAffirmation: "I am great",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 
@@ -134,7 +134,7 @@ test.describe("API – POST/PATCH/DELETE /emotions", () => {
         triggers: ["routine"],
         highlightsOfTheDay: ["Good day", "", ""],
         whatDidILearnToday: "Something new",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
     const checkin = await checkinRes.json();
@@ -232,7 +232,7 @@ test.describe("API – POST/PATCH/DELETE /triggers", () => {
         whatImGratefulFor: ["Sunshine", "", ""],
         whatWouldMakeDayGreat: ["Good coffee", "", ""],
         dailyAffirmation: "I am present",
-        localDate: new Date().toISOString().slice(0, 10),
+        localDateTime: new Date().toISOString().slice(0, 16),
       },
     });
 

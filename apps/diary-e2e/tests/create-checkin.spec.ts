@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { resetDatabase, getEntryCount } from "../db";
 
 test.describe("Create Check-in", () => {
@@ -152,7 +152,9 @@ test.describe("Create Check-in", () => {
 
     await page.route("**/entries/checkins", async (route) => {
       await requestHeld;
-      await route.continue();
+      // Use fallback() so this handler passes the request on to the gateway
+      // interception fixture (registered earlier) rather than going to network.
+      await route.fallback();
     });
 
     await page.goto("/entries/new/checkin");
@@ -195,7 +197,7 @@ test.describe("Create Check-in", () => {
     await page.route("**/entries/checkins", async (route) => {
       callCount++;
       await requestHeld;
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto("/entries/new/checkin");
@@ -221,6 +223,9 @@ test.describe("Create Check-in", () => {
   test("switching type resets form fields", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
+    // Ensure morning mode is active regardless of time of day
+    await page.getByRole("button", { name: "Morning" }).click();
+
     // Fill some morning data
     await page.locator("input[placeholder='First thing…']").first().fill("Health");
 
@@ -231,5 +236,80 @@ test.describe("Create Check-in", () => {
     // Fields should be cleared
     const firstInput = page.locator("input[placeholder='First thing…']").first();
     await expect(firstInput).toHaveValue("");
+  });
+
+  test("can add a new emotion from check-in form and use it in check-in", async ({
+    page,
+  }) => {
+    await page.goto("/entries/new/checkin");
+
+    // Wait for emotions to finish loading (happy is a default emotion that
+    // appears once the API call completes) before clicking the add button.
+    await expect(page.getByRole("button", { name: "happy" })).toBeVisible();
+
+    // Open "Add emotion" (gray button in Emotions row)
+    await page.getByRole("button", { name: "Add emotion" }).click();
+
+    // Modal: fill label, pick type, submit
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "New emotion" })).toBeVisible();
+    await dialog.getByLabel("Label").fill("e2e-from-checkin");
+    await dialog.getByRole("button", { name: "Pleasant" }).click();
+    await dialog.getByRole("button", { name: "Add" }).click();
+
+    // Modal closes; new emotion appears and is auto-selected
+    await expect(page.getByRole("button", { name: "e2e-from-checkin" })).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Complete and save check-in
+    await page.getByRole("button", { name: "Morning" }).click();
+    await page.getByRole("button", { name: "7", exact: true }).click();
+    await page.getByRole("button", { name: "exercise" }).click();
+    await page.locator("input[placeholder='First thing…']").first().fill("Health");
+    await page.locator("input[placeholder='First thing…']").nth(1).fill("Focus");
+    await page.getByPlaceholder("I am…").fill("I am grateful");
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL("/", { timeout: 10_000 });
+
+    const count = await getEntryCount();
+    expect(count).toBe(1);
+  });
+
+  test("can add a new trigger from check-in form and use it in check-in", async ({
+    page,
+  }) => {
+    await page.goto("/entries/new/checkin");
+
+    // Wait for triggers to finish loading before clicking the add button.
+    await expect(page.getByRole("button", { name: "exercise" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Add trigger" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "New trigger" })).toBeVisible();
+    await dialog.getByLabel("Label").fill("e2e-trigger-from-checkin");
+    await dialog.getByRole("button", { name: "Neutral" }).click();
+    await dialog.getByRole("button", { name: "Add" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "e2e-trigger-from-checkin" }),
+    ).toBeVisible({ timeout: 5000 });
+
+    await page.getByRole("button", { name: "Morning" }).click();
+    await page.getByRole("button", { name: "7", exact: true }).click();
+    await page.getByRole("button", { name: "happy" }).click();
+    await page.locator("input[placeholder='First thing…']").first().fill("Health");
+    await page.locator("input[placeholder='First thing…']").nth(1).fill("Focus");
+    await page.getByPlaceholder("I am…").fill("I am ready");
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL("/", { timeout: 10_000 });
+
+    const count = await getEntryCount();
+    expect(count).toBe(1);
   });
 });

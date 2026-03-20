@@ -17,24 +17,26 @@ const adapter = new PrismaPg({ connectionString: url });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const entries = await prisma.entry.findMany({ orderBy: { localDate: "asc" } });
+  const entries = await prisma.entry.findMany({ orderBy: { localDateTime: "asc" } });
   console.log(`Found ${entries.length} entries to back up…`);
 
   let count = 0;
   for (const entry of entries) {
     const markdown = entry.type === "checkin" ? renderCheckin(entry) : renderNote(entry);
-    await writeEntryFile(entry.localDate, entry.type, entry.id, markdown);
+    await writeEntryFile(entry.localDateTime, entry.type, entry.id, markdown);
     count++;
   }
 
   console.log(`Done. Backed up ${count} entries to ${backupDir}`);
 }
 
-async function writeEntryFile(localDate: string, type: string, id: string, content: string) {
-  const [year, month] = localDate.split("-");
+async function writeEntryFile(localDateTime: string, type: string, id: string, content: string) {
+  const datePart = localDateTime.slice(0, 10);
+  const [year, month] = datePart.split("-");
   const dir = join(backupDir, year, month);
   await mkdir(dir, { recursive: true });
-  const filename = `${localDate}_${type}_${id}.md`;
+  const safeDateTime = localDateTime.replace(":", "-");
+  const filename = `${safeDateTime}_${type}_${id}.md`;
   await writeFile(join(dir, filename), content, "utf-8");
 }
 
@@ -44,7 +46,7 @@ function renderNote(entry: Entry): string {
   const frontmatter = buildFrontmatter({
     id: entry.id,
     type: "note",
-    date: entry.localDate,
+    date: entry.localDateTime,
     title,
     folder_id: entry.noteFolderId,
     word_count: entry.wordCount,
@@ -56,13 +58,13 @@ function renderNote(entry: Entry): string {
 
 function renderCheckin(entry: Entry): string {
   const typeLabel = entry.checkInType === "morning" ? "Morning" : "Evening";
-  const title = `${typeLabel} Check-in — ${entry.localDate}`;
+  const title = `${typeLabel} Check-in — ${entry.localDateTime.replace("T", " ")}`;
 
   const frontmatter = buildFrontmatter({
     id: entry.id,
     type: "checkin",
     check_in_type: entry.checkInType,
-    date: entry.localDate,
+    date: entry.localDateTime,
     mood: entry.mood,
     emotions: entry.emotions.length > 0 ? entry.emotions : undefined,
     triggers: entry.triggers.length > 0 ? entry.triggers : undefined,

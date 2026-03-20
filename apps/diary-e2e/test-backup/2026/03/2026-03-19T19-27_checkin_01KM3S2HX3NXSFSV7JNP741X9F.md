@@ -1,0 +1,38 @@
+---
+id: 01KM3S2HX3NXSFSV7JNP741X9F
+type: checkin
+check_in_type: morning
+date: "2026-03-19T19:27"
+mood: 7
+emotions:
+  - happy
+triggers:
+  - exercise
+created_at: "2026-03-19T19:27:34.820Z"
+updated_at: "2026-03-19T19:27:34.820Z"
+---
+
+# Morning Check-in — 2026-03-19 19:27
+
+
+## Mood
+7/10
+
+## Emotions
+- happy
+
+## Triggers
+- exercise
+
+## What I'm Grateful For
+- Good health and energy
+- 
+- 
+
+## What Would Make Today Great
+- Stay focused on goals
+- 
+- 
+
+## Daily Affirmation
+I am productive and motivated

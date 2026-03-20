@@ -1,11 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { API_URL } from "../playwright.config";
+import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
 import { resetDatabase } from "../db";
+
+const AUTH_HEADERS = {
+  "Content-Type": "application/json",
+  "x-service-token": E2E_SERVICE_TOKEN,
+  "x-user-id": E2E_USER_ID,
+};
 
 async function createMorningCheckin(): Promise<string> {
   const res = await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       checkInType: "morning",
       mood: 7,
@@ -14,7 +21,7 @@ async function createMorningCheckin(): Promise<string> {
       whatImGratefulFor: ["Good health", "", ""],
       whatWouldMakeDayGreat: ["Stay focused", "", ""],
       dailyAffirmation: "I am capable and ready",
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
   const data = (await res.json()) as { id: string };
@@ -24,7 +31,7 @@ async function createMorningCheckin(): Promise<string> {
 async function createEveningCheckin(): Promise<string> {
   const res = await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       checkInType: "evening",
       mood: 6,
@@ -32,7 +39,7 @@ async function createEveningCheckin(): Promise<string> {
       triggers: ["music"],
       highlightsOfTheDay: ["Finished the project", "", ""],
       whatDidILearnToday: "Consistency is key",
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
   const data = (await res.json()) as { id: string };
@@ -42,7 +49,7 @@ async function createEveningCheckin(): Promise<string> {
 async function createNote(): Promise<string> {
   const res = await fetch(`${API_URL}/entries/notes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       title: "Test Note",
       contentJson: {
@@ -55,7 +62,7 @@ async function createNote(): Promise<string> {
       },
       plainText: "Note content here",
       wordCount: 3,
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
   const data = (await res.json()) as { id: string };
@@ -158,7 +165,7 @@ test.describe("Edit Entry", () => {
     // After redirect, default view is notes
     await expect(page.getByText("0 notes")).toBeVisible();
 
-    const res = await fetch(`${API_URL}/entries/${entryId}`);
+    const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
     expect(res.status).toBe(404);
   });
 
@@ -174,7 +181,7 @@ test.describe("Edit Entry", () => {
     await page.waitForURL("/");
     await expect(page.getByText("0 notes")).toBeVisible();
 
-    const res = await fetch(`${API_URL}/entries/${entryId}`);
+    const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
     expect(res.status).toBe(404);
   });
 
@@ -197,15 +204,18 @@ test.describe("Edit Entry", () => {
       if (route.request().method() === "PATCH") {
         await requestHeld;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto(`/entries/${entryId}`);
     await expect(page.getByRole("heading", { name: "Edit Check-in" })).toBeVisible();
+    // Wait for form options (emotions/triggers) to finish loading so the save
+    // overlay is the only status="Loading" element when asserting below.
+    await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Save changes" }).click();
 
-    // Loading overlay must appear
+    // Loading overlay must appear (only the SpinnerOverlay at this point)
     await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
 
     // Save button shows "Saving…" and is disabled
@@ -240,7 +250,7 @@ test.describe("Edit Entry", () => {
         callCount++;
         await requestHeld;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto(`/entries/${entryId}`);

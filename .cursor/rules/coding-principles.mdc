@@ -71,6 +71,7 @@ The Settings tab (`?view=settings`) allows managing reference data:
 
 - **Emotions** (`GET/POST /emotions`, `PATCH /emotions/:id`, `DELETE /emotions/:id`): Colored tag buttons matching the check-in form appearance (difficult=danger, neutral=warning, pleasant=success). Each emotion shows its usage count. **Deleting an emotion used in any check-in returns 409** and the delete button is disabled in the UI. **Renaming an emotion label propagates to all existing check-ins** via `array_replace` on the `entries.emotions` column.
 - **Triggers** (same pattern as emotions, `GET/POST /triggers`, `PATCH /triggers/:id`, `DELETE /triggers/:id`): Same usage-check and label-propagation behavior.
+- **Default emotions and triggers**: Every user gets a default set (defined in `@diary/shared` as `DEFAULT_EMOTIONS` and `DEFAULT_TRIGGERS`). New users receive them on first `GET /emotions` or `GET /triggers` (lazy-seed). Users can add, rename, or remove items.
 - **Projects** (`GET/POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`): Name (unique) + optional description. Deleting a project sets `projectId = null` on all its notes (SetNull cascade). Projects can be assigned to notes via `projectId` field.
 - **Tags** (`GET/POST /tags`, `PATCH /tags/:id`, `DELETE /tags/:id`): Simple name-only tags. Tags can be assigned to multiple notes (M:M via `_EntryTags` join table). Deleting a tag removes the association from all notes (CASCADE).
 

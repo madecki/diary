@@ -5,18 +5,20 @@ import { API_URL } from "../playwright.config";
 import { resetDatabase } from "../db";
 import { E2E_BACKUP_DIR } from "../global-setup";
 
-const TODAY = new Date().toISOString().slice(0, 10);
-const todayParts = TODAY.split("-");
+const TODAY_DATETIME = new Date().toISOString().slice(0, 16);
+const todayParts = TODAY_DATETIME.slice(0, 10).split("-");
 const year = todayParts[0] ?? "";
 const month = todayParts[1] ?? "";
 
 async function waitForBackupFile(
   entryId: string,
   type: string,
+  localDateTime: string,
   timeoutMs = 30_000,
 ): Promise<string | null> {
   const dir = join(E2E_BACKUP_DIR, year, month);
-  const expected = `${TODAY}_${type}_${entryId}.md`;
+  const safeDateTime = localDateTime.replace(":", "-");
+  const expected = `${safeDateTime}_${type}_${entryId}.md`;
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -35,7 +37,7 @@ async function ensureBackupPipelineReady(request: APIRequestContext): Promise<vo
         contentJson: { blocks: [] },
         plainText: `Warmup ${Date.now()}`,
         wordCount: 2,
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
 
@@ -45,7 +47,7 @@ async function ensureBackupPipelineReady(request: APIRequestContext): Promise<vo
     }
 
     const entry = await res.json();
-    const filePath = await waitForBackupFile(entry.id, "note", 10_000);
+    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 10_000);
     if (filePath) return;
   }
 
@@ -66,21 +68,21 @@ test.describe("Markdown Backup", () => {
         contentJson: { blocks: [] },
         plainText: "This should appear in the backup file.",
         wordCount: 7,
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
 
     expect(res.status()).toBe(201);
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "note");
+    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime);
     expect(filePath).not.toBeNull();
 
     const content = readFileSync(filePath as string, "utf-8");
 
     expect(content).toContain(`id: ${entry.id}`);
     expect(content).toContain("type: note");
-    expect(content).toContain(`date: ${TODAY}`);
+    expect(content).toContain(entry.localDateTime);
     expect(content).toContain("title: Backup Test Note");
     expect(content).toContain("# Backup Test Note");
     expect(content).toContain("This should appear in the backup file.");
@@ -96,14 +98,14 @@ test.describe("Markdown Backup", () => {
         whatImGratefulFor: ["Health", "", ""],
         whatWouldMakeDayGreat: ["Finish work", "", ""],
         dailyAffirmation: "I am focused",
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
 
     expect(res.status()).toBe(201);
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "checkin", 30_000);
+    const filePath = await waitForBackupFile(entry.id, "checkin", entry.localDateTime, 30_000);
     expect(filePath).not.toBeNull();
 
     const content = readFileSync(filePath as string, "utf-8");
@@ -131,12 +133,12 @@ test.describe("Markdown Backup", () => {
         whatImGratefulFor: ["Coffee", "", ""],
         whatWouldMakeDayGreat: ["Good meeting", "", ""],
         dailyAffirmation: "First version",
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
     const entry = await create.json();
 
-    await waitForBackupFile(entry.id, "checkin");
+    await waitForBackupFile(entry.id, "checkin", entry.localDateTime);
 
     const update = await request.patch(`${API_URL}/entries/${entry.id}`, {
       data: { checkInType: "morning", dailyAffirmation: "Updated version", mood: 9 },
@@ -144,10 +146,11 @@ test.describe("Markdown Backup", () => {
     expect(update.status()).toBe(200);
 
     // Poll until the file reflects the updated content
+    const safeDateTime = entry.localDateTime.replace(":", "-");
     const deadline = Date.now() + 10_000;
     let content = "";
     while (Date.now() < deadline) {
-      const filePath = join(E2E_BACKUP_DIR, year, month, `${TODAY}_checkin_${entry.id}.md`);
+      const filePath = join(E2E_BACKUP_DIR, year, month, `${safeDateTime}_checkin_${entry.id}.md`);
       if (existsSync(filePath)) {
         content = readFileSync(filePath, "utf-8");
         if (content.includes("Updated version")) break;
@@ -165,13 +168,13 @@ test.describe("Markdown Backup", () => {
         contentJson: { blocks: [] },
         plainText: "To be deleted.",
         wordCount: 3,
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
     const entry = await create.json();
 
     // Wait for initial backup
-    const filePath = await waitForBackupFile(entry.id, "note", 30_000);
+    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 30_000);
     expect(filePath).not.toBeNull();
 
     // Delete the entry
@@ -179,7 +182,8 @@ test.describe("Markdown Backup", () => {
     expect(del.status()).toBe(204);
 
     // Wait for file to move to _deleted/
-    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${TODAY}_note_${entry.id}.md`);
+    const safeDateTime = entry.localDateTime.replace(":", "-");
+    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${safeDateTime}_note_${entry.id}.md`);
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       if (existsSync(deletedPath)) break;
@@ -197,12 +201,12 @@ test.describe("Markdown Backup", () => {
         contentJson: { blocks: [] },
         plainText: "Directory structure test.",
         wordCount: 3,
-        localDate: TODAY,
+        localDateTime: TODAY_DATETIME,
       },
     });
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "note", 30_000);
+    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 30_000);
     expect(filePath).not.toBeNull();
 
     const dir = join(E2E_BACKUP_DIR, year, month);

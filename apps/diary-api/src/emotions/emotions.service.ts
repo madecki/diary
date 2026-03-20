@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
 import { ulid } from "ulidx";
-import type { CreateEmotionInput, UpdateEmotionInput } from "@diary/shared";
+import { DEFAULT_EMOTIONS, type CreateEmotionInput, type UpdateEmotionInput } from "@diary/shared";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -8,6 +8,17 @@ export class EmotionsService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async listEmotions(actorUserId: string) {
+    const count = await this.prisma.emotion.count({ where: { ownerId: actorUserId } });
+    if (count === 0) {
+      const data = DEFAULT_EMOTIONS.map((e) => ({
+        id: `${actorUserId}_${e.idSuffix}`,
+        ownerId: actorUserId,
+        label: e.label,
+        type: e.type,
+      }));
+      await this.prisma.emotion.createMany({ data, skipDuplicates: true });
+    }
+
     const emotions = await this.prisma.emotion.findMany({
       where: { ownerId: actorUserId },
       orderBy: { label: "asc" },

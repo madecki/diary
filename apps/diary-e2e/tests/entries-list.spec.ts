@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { resetDatabase } from "../db";
 
 test.describe("Entries List", () => {

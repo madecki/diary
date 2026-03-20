@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { resetDatabase, getEntryCount } from "../db";
 
 test.describe("Full User Flow", () => {

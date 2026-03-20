@@ -12,11 +12,11 @@ export class MarkdownBackup {
   async handleEvent(payload: DiaryEventPayload): Promise<void> {
     const id = payload.aggregate.id;
     const type = payload.aggregate.type;
-    const localDate = payload.data.derived.localDate;
+    const localDateTime = payload.data.derived.localDateTime;
 
     try {
       if (payload.eventName === "diary.entry.deleted") {
-        await this.moveToDeleted(localDate, type, id);
+        await this.moveToDeleted(localDateTime, type, id);
         console.log(`[MarkdownBackup] Moved deleted entry ${id} to _deleted/`);
         return;
       }
@@ -26,7 +26,7 @@ export class MarkdownBackup {
           ? renderCheckin(payload.data.entrySnapshot, payload.data.derived)
           : renderNote(payload.data.entrySnapshot);
 
-      await this.writeFile(localDate, type, id, markdown);
+      await this.writeFile(localDateTime, type, id, markdown);
       console.log(`[MarkdownBackup] Backed up ${payload.eventName} ${id}`);
     } catch (err) {
       console.error(`[MarkdownBackup] Failed to back up ${id}:`, err);
@@ -34,24 +34,28 @@ export class MarkdownBackup {
   }
 
   private async writeFile(
-    localDate: string,
+    localDateTime: string,
     type: string,
     id: string,
     content: string,
   ): Promise<void> {
-    const parts = localDate.split("-");
-    const dir = join(config.backupDir, parts[0] ?? "", parts[1] ?? "");
+    const datePart = localDateTime.slice(0, 10);
+    const [year, month] = datePart.split("-");
+    const dir = join(config.backupDir, year ?? "", month ?? "");
     await mkdir(dir, { recursive: true });
-    const filename = `${localDate}_${type}_${id}.md`;
+    const safeDateTime = localDateTime.replace(":", "-");
+    const filename = `${safeDateTime}_${type}_${id}.md`;
     await writeFile(join(dir, filename), content, "utf-8");
   }
 
-  private async moveToDeleted(localDate: string, type: string, id: string): Promise<void> {
-    const parts = localDate.split("-");
-    const srcDir = join(config.backupDir, parts[0] ?? "", parts[1] ?? "");
+  private async moveToDeleted(localDateTime: string, type: string, id: string): Promise<void> {
+    const datePart = localDateTime.slice(0, 10);
+    const [year, month] = datePart.split("-");
+    const srcDir = join(config.backupDir, year ?? "", month ?? "");
     const destDir = join(config.backupDir, "_deleted");
     await mkdir(destDir, { recursive: true });
-    const filename = `${localDate}_${type}_${id}.md`;
+    const safeDateTime = localDateTime.replace(":", "-");
+    const filename = `${safeDateTime}_${type}_${id}.md`;
     try {
       await rename(join(srcDir, filename), join(destDir, filename));
     } catch {
@@ -69,13 +73,13 @@ function renderNote(snapshot: Record<string, unknown>): string {
   const noteFolderPath = snapshot.noteFolderPath as string | null;
   const createdAt = snapshot.createdAt as string;
   const updatedAt = snapshot.updatedAt as string;
-  const localDate = snapshot.localDate as string;
+  const localDateTime = snapshot.localDateTime as string;
   const id = snapshot.id as string;
 
   const frontmatter = buildFrontmatter({
     id,
     type: "note",
-    date: localDate,
+    date: localDateTime,
     title,
     folder_path: noteFolderPath,
     word_count: wordCount,
@@ -91,7 +95,7 @@ function renderCheckin(
   derived: DiaryEventPayload["data"]["derived"],
 ): string {
   const id = snapshot.id as string;
-  const localDate = derived.localDate;
+  const localDateTime = derived.localDateTime;
   const checkInType = derived.checkInType;
   const mood = derived.mood;
   const emotions = derived.emotions ?? [];
@@ -105,13 +109,13 @@ function renderCheckin(
   const updatedAt = snapshot.updatedAt as string;
 
   const typeLabel = checkInType === "morning" ? "Morning" : "Evening";
-  const title = `${typeLabel} Check-in — ${localDate}`;
+  const title = `${typeLabel} Check-in — ${localDateTime.replace("T", " ")}`;
 
   const frontmatter = buildFrontmatter({
     id,
     type: "checkin",
     check_in_type: checkInType,
-    date: localDate,
+    date: localDateTime,
     mood,
     emotions: emotions.length > 0 ? emotions : undefined,
     triggers: triggers.length > 0 ? triggers : undefined,

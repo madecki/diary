@@ -81,6 +81,10 @@ async function request<T>(
     throw new Error(message ?? `Request failed: ${res.status}`);
   }
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
 
@@ -123,7 +127,7 @@ export function deleteEntry(id: string): Promise<void> {
 
 export function browseNotes(path?: string | null): Promise<BrowseNotesResponse> {
   const query = path ? `?path=${encodeURIComponent(path)}` : "";
-  return request("GET", `/entries/note-folders${query}`);
+  return request("GET", `/entries/notes/browse${query}`);
 }
 
 export function createNoteFolder(input: { path: string }): Promise<{ id: string; path: string }> {
@@ -135,8 +139,9 @@ export function renameNoteFolder(input: { path: string; newName: string }): Prom
 }
 
 export function deleteNoteFolder(path: string, force?: boolean): Promise<void> {
-  const query = force ? "?force=true" : "";
-  return request("DELETE", `/entries/note-folders${query}`, { path });
+  const params = new URLSearchParams({ path });
+  if (force) params.set("force", "true");
+  return request("DELETE", `/entries/note-folders?${params.toString()}`);
 }
 
 // ── Emotions ───────────────────────────────────────────────────────

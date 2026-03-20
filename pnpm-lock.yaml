@@ -104,8 +104,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@madecki/ui':
-        specifier: latest
-        version: 1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.0)
+        specifier: ^1.2.1
+        version: 1.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.0)
       '@mantine/core':
         specifier: ^8.3.11
         version: 8.3.15(@mantine/hooks@8.3.15(react@19.2.4))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -189,6 +189,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@diary/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@prisma/adapter-pg':
         specifier: ^7.0.0
         version: 7.4.1
@@ -720,8 +723,8 @@ packages:
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
     engines: {node: '>=8'}
 
-  '@madecki/ui@1.2.0':
-    resolution: {integrity: sha512-YaQoMrDq+Ogf0nOoCEpmOzhj/c8kRld9St6ra6LF07dChp0c4boVRF7DkNorMFE1XgFZgA3Ezpu/kr1RFTWe7w==}
+  '@madecki/ui@1.2.1':
+    resolution: {integrity: sha512-ZWd5JNnPEJH5dIx7So5NR/z8dX/Vz37XVYqHURsVOYq2+f8EZXsombu2hnwHplerQjI+ajKI8EGdpYV/FvoL0g==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -3319,7 +3322,7 @@ snapshots:
 
   '@lukeed/csprng@1.1.0': {}
 
-  '@madecki/ui@1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.0)':
+  '@madecki/ui@1.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.0)':
     dependencies:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)

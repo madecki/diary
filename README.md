@@ -218,7 +218,7 @@ Configuration (env vars):
     "derived": {
       "plainText": "...",
       "wordCount": 150,
-      "localDate": "2026-02-20",
+      "localDateTime": "2026-02-20T09:30",
       "mood": 7,
       "emotions": ["grateful", "calm"],
       "triggers": ["meditation"]

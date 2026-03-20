@@ -1,6 +1,13 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures";
 import { API_URL } from "../playwright.config";
+import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
 import { resetDatabase } from "../db";
+
+const AUTH_HEADERS = {
+  "Content-Type": "application/json",
+  "x-service-token": E2E_SERVICE_TOKEN,
+  "x-user-id": E2E_USER_ID,
+};
 
 async function createMorningCheckin(
   whatImGratefulFor: [string, string, string],
@@ -9,7 +16,7 @@ async function createMorningCheckin(
 ): Promise<void> {
   await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       checkInType: "morning",
       mood: 7,
@@ -18,7 +25,7 @@ async function createMorningCheckin(
       whatImGratefulFor,
       whatWouldMakeDayGreat,
       dailyAffirmation,
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
 }
@@ -29,7 +36,7 @@ async function createEveningCheckin(
 ): Promise<void> {
   await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       checkInType: "evening",
       mood: 5,
@@ -37,7 +44,7 @@ async function createEveningCheckin(
       triggers: ["routine"],
       highlightsOfTheDay,
       whatDidILearnToday,
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
 }
@@ -45,7 +52,7 @@ async function createEveningCheckin(
 async function createNote(title: string, content: string): Promise<void> {
   await fetch(`${API_URL}/entries/notes`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: AUTH_HEADERS,
     body: JSON.stringify({
       title,
       contentJson: {
@@ -58,7 +65,7 @@ async function createNote(title: string, content: string): Promise<void> {
       },
       plainText: content,
       wordCount: content.split(/\s+/).length,
-      localDate: new Date().toISOString().slice(0, 10),
+      localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
 }

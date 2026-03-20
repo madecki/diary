@@ -117,8 +117,8 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           contentJson: { blocks: contentJson } as Record<string, unknown>,
           plainText,
           wordCount,
-          folderPath: folderPath,
-          projectId: projectId,
+          folderPath: folderPath ?? undefined,
+          projectId: projectId ?? undefined,
           tagIds,
           localDateTime: dateTime,
         });

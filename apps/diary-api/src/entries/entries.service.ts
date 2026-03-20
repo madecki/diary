@@ -25,13 +25,13 @@ type TxClient = Parameters<Parameters<PrismaService["$transaction"]>[0]>[0];
 
 type EntryInclude = Entry & {
   noteFolder?: Pick<NoteFolder, "path"> | null;
-  project?: { id: string; name: string } | null;
+  project?: { id: string; name: string; color: string } | null;
   tags?: { id: string; name: string }[];
 };
 
 const ENTRY_INCLUDE = {
   noteFolder: { select: { path: true } },
-  project: { select: { id: true, name: true } },
+  project: { select: { id: true, name: true, color: true } },
   tags: { select: { id: true, name: true } },
 } as const;
 
@@ -41,7 +41,7 @@ export class EntriesService {
 
   async createCheckin(input: CreateCheckinInput, actorUserId: string): Promise<EntryResponse> {
     const id = ulid();
-    const localDate = input.localDate ?? todayLocal();
+    const localDateTime = input.localDateTime ?? todayLocalDateTime();
 
     return this.prisma.$transaction(async (tx) => {
       const typeSpecificData =
@@ -65,7 +65,7 @@ export class EntriesService {
           emotions: input.emotions,
           triggers: input.triggers,
           checkInType: input.checkInType,
-          localDate,
+          localDateTime,
           ...typeSpecificData,
         },
         include: ENTRY_INCLUDE,
@@ -157,7 +157,7 @@ export class EntriesService {
 
   async createNote(input: CreateNoteInput, actorUserId: string): Promise<EntryResponse> {
     const id = ulid();
-    const localDate = input.localDate ?? todayLocal();
+    const localDateTime = input.localDateTime ?? todayLocalDateTime();
 
     return this.prisma.$transaction(async (tx) => {
       const folder = await this.resolveFolderPath(tx, input.folderPath);
@@ -171,7 +171,7 @@ export class EntriesService {
           wordCount: input.wordCount,
           title: input.title ?? null,
           noteFolderId: folder?.id ?? null,
-          localDate,
+          localDateTime,
           ...(input.projectId ? { projectId: input.projectId } : {}),
           ...(input.tagIds && input.tagIds.length > 0
             ? { tags: { connect: input.tagIds.map((tagId) => ({ id: tagId })) } }
@@ -283,7 +283,7 @@ export class EntriesService {
             ...(data.mood !== undefined && { mood: data.mood }),
             ...(data.emotions !== undefined && { emotions: data.emotions }),
             ...(data.triggers !== undefined && { triggers: data.triggers }),
-            ...(data.localDate && { localDate: data.localDate }),
+            ...(data.localDateTime !== undefined && { localDateTime: data.localDateTime }),
             ...typeSpecificData,
           },
           include: ENTRY_INCLUDE,
@@ -315,7 +315,7 @@ export class EntriesService {
           }),
           ...(data.plainText !== undefined && { plainText: data.plainText }),
           ...(data.wordCount !== undefined && { wordCount: data.wordCount }),
-          ...(data.localDate !== undefined && { localDate: data.localDate }),
+          ...(data.localDateTime !== undefined && { localDateTime: data.localDateTime }),
           ...(noteFolderId !== undefined && { noteFolderId }),
           ...(data.projectId !== undefined && { projectId: data.projectId }),
           ...(data.tagIds !== undefined && {
@@ -399,7 +399,7 @@ export class EntriesService {
         entrySnapshot: {
           id: entry.id,
           type: entry.type,
-          localDate: entry.localDate,
+          localDateTime: entry.localDateTime,
           title: entry.title,
           contentJson: entry.contentJson,
           plainText: entry.plainText,
@@ -419,7 +419,7 @@ export class EntriesService {
           updatedAt: entry.updatedAt.toISOString(),
         },
         derived: {
-          localDate: entry.localDate,
+          localDateTime: entry.localDateTime,
           checkInType: entry.checkInType ?? null,
           mood: entry.mood ?? null,
           emotions: entry.emotions.length > 0 ? entry.emotions : null,
@@ -524,15 +524,15 @@ export class EntriesService {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function todayLocal(): string {
-  return new Date().toISOString().split("T")[0]!;
+function todayLocalDateTime(): string {
+  return new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
 }
 
 function toResponse(entry: EntryInclude): EntryResponse {
   return {
     id: entry.id,
     type: entry.type,
-    localDate: entry.localDate,
+    localDateTime: entry.localDateTime,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),
     title: entry.title,
@@ -542,7 +542,7 @@ function toResponse(entry: EntryInclude): EntryResponse {
     noteFolderId: entry.noteFolderId,
     noteFolderPath: entry.noteFolder?.path ?? null,
     projectId: entry.projectId ?? null,
-    project: entry.project ?? null,
+    project: (entry.project ?? null) as EntryResponse["project"],
     tags: entry.tags ?? [],
     mood: entry.mood,
     emotions: entry.emotions,

@@ -29,11 +29,11 @@ enum Permission {
 }
 
 model Entry {
-  id          String      @id
-  type        EntryType
-  localDate   String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id             String      @id
+  type           EntryType
+  localDateTime  String      // YYYY-MM-DDTHH:mm (date + time for ordering/same-day entries)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   // Owner — null means legacy entry (pre-auth), visible to any authenticated user
   ownerId     String?
@@ -63,7 +63,7 @@ model Entry {
 
   @@index([type])
   @@index([createdAt])
-  @@index([localDate])
+  @@index([localDateTime])
   @@index([noteFolderId])
   @@index([projectId])
   @@index([ownerId])
@@ -75,6 +75,7 @@ model Project {
   ownerId     String
   name        String
   description String?
+  color       String   @default("primary")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   entries     Entry[]

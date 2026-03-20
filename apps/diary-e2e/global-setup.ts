@@ -11,7 +11,15 @@ const DATABASE_URL =
 
 // Use dedicated test ports so the production app on 4280/4281 is never disturbed
 const FRONTEND_PORT = 4282;
-const BACKEND_PORT = 4283;
+export const BACKEND_PORT = 4283;
+
+// Fixed credentials used by all E2E tests.
+// The token must match GATEWAY_SERVICE_TOKEN passed to diary-api below.
+// The user ID is a stable synthetic identity — all test data is owned by it.
+export const E2E_SERVICE_TOKEN =
+  process.env.E2E_SERVICE_TOKEN ??
+  "e2e-test-service-token-diary-e2e-do-not-use-in-production";
+export const E2E_USER_ID = process.env.E2E_USER_ID ?? "e2e-test-user";
 
 // Dedicated backup dir for e2e tests — deterministic path, gitignored via diary-backups/
 export const E2E_BACKUP_DIR = join(__dirname, "test-backup");
@@ -26,7 +34,12 @@ async function waitForApi(timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(`http://localhost:${BACKEND_PORT}/entries?limit=1`);
+      const res = await fetch(`http://localhost:${BACKEND_PORT}/entries?limit=1`, {
+        headers: {
+          "x-service-token": E2E_SERVICE_TOKEN,
+          "x-user-id": E2E_USER_ID,
+        },
+      });
       if (res.ok) return;
     } catch {
       // not ready yet
@@ -169,6 +182,12 @@ export default async function globalSetup(): Promise<void> {
     await client.query("TRUNCATE TABLE entries RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE outbox_events RESTART IDENTITY CASCADE");
     await client.query("TRUNCATE TABLE note_folders RESTART IDENTITY CASCADE");
+    // Remove emotions/triggers created by the test user in previous runs so that
+    // tests which create custom emotions/triggers (e.g. "e2e-from-checkin") always
+    // start from a clean per-user state. The EmotionsService auto-seeds default
+    // emotions on the first listEmotions call for a new owner, so this is safe.
+    await client.query(`DELETE FROM emotions WHERE "ownerId" = $1`, [E2E_USER_ID]);
+    await client.query(`DELETE FROM triggers WHERE "ownerId" = $1`, [E2E_USER_ID]);
   } finally {
     await client.end();
   }
@@ -177,22 +196,41 @@ export default async function globalSetup(): Promise<void> {
   execSync("pnpm --filter @diary/shared build", { cwd: ROOT_DIR, stdio: "inherit" });
 
   console.log("🚀 Starting diary-api...");
-  const backendProc = startProcess("pnpm", ["--filter", "diary-api", "dev"], ROOT_DIR, {
-    DATABASE_URL,
-    PORT: String(BACKEND_PORT),
-    CORS_ORIGIN: `http://localhost:${FRONTEND_PORT}`,
-  });
+  // Use `exec tsx` (no watch) so that file-system events during the test run
+  // (e.g. backup files written by diary-worker) cannot trigger an unexpected
+  // restart that would cause ECONNREFUSED errors mid-test.
+  const backendProc = startProcess(
+    "pnpm",
+    ["--filter", "diary-api", "exec", "tsx", "src/main.ts"],
+    ROOT_DIR,
+    {
+      DATABASE_URL,
+      PORT: String(BACKEND_PORT),
+      CORS_ORIGIN: `http://localhost:${FRONTEND_PORT}`,
+      GATEWAY_SERVICE_TOKEN: E2E_SERVICE_TOKEN,
+    },
+  );
 
   console.log("🚀 Starting diary-web...");
   const frontendProc = startProcess("pnpm", ["--filter", "diary-web", "dev:e2e"], ROOT_DIR, {
-    NEXT_PUBLIC_API_BASE_URL: `http://localhost:${BACKEND_PORT}`,
+    // Serve at root (no /mfe/diary prefix) so Playwright goto("/") and goto("/entries/...")
+    // resolve correctly without a gateway or shell in the way.
+    NEXT_PUBLIC_DIARY_BASE_PATH: "",
+    // Keep assetPrefix falsy so _next/ assets are served from the same port (4282).
+    NEXT_PUBLIC_VIA_GATEWAY: "true",
     NEXT_DIST_DIR: ".next-e2e",
+    // E2E-only: used by next.config.ts rewrites + middleware to proxy server-side
+    // /diary/:path* calls to diary-api with auth headers. Never set in production.
+    E2E_API_TARGET: `http://localhost:${BACKEND_PORT}`,
+    E2E_SERVICE_TOKEN,
+    E2E_USER_ID,
   });
 
   console.log("🚀 Starting diary-worker...");
+  // Same reasoning as diary-api — no watch flag so worker stays stable.
   const workerProc = startProcess(
     "pnpm",
-    ["--filter", "diary-worker", "dev"],
+    ["--filter", "diary-worker", "exec", "tsx", "src/main.ts"],
     ROOT_DIR,
     { BACKUP_DIR: E2E_BACKUP_DIR, DATABASE_URL },
   );

@@ -42,9 +42,9 @@ describe("CreateCheckinSchema", () => {
     expect(result.checkInType).toBe("evening");
   });
 
-  it("accepts optional localDate", () => {
-    const result = CreateCheckinSchema.parse({ ...validMorning, localDate: "2026-02-20" });
-    expect(result.localDate).toBe("2026-02-20");
+  it("accepts optional localDateTime", () => {
+    const result = CreateCheckinSchema.parse({ ...validMorning, localDateTime: "2026-02-20T09:30" });
+    expect(result.localDateTime).toBe("2026-02-20T09:30");
   });
 
   it("rejects when all three gratitude items are empty", () => {
@@ -90,9 +90,9 @@ describe("CreateCheckinSchema", () => {
     ).toThrow();
   });
 
-  it("rejects invalid localDate format", () => {
+  it("rejects invalid localDateTime format", () => {
     expect(() =>
-      CreateCheckinSchema.parse({ ...validMorning, localDate: "20-02-2026" }),
+      CreateCheckinSchema.parse({ ...validMorning, localDateTime: "20-02-2026" }),
     ).toThrow();
   });
 
@@ -210,7 +210,7 @@ describe("DiaryEventPayloadSchema", () => {
     data: {
       entrySnapshot: { id: "01ARZ3NDEKTSV4RRFFQ69G5FAX", type: "checkin" },
       derived: {
-        localDate: "2026-02-20",
+        localDateTime: "2026-02-20T09:30",
         checkInType: "morning",
         mood: 7,
         emotions: ["happy"],
@@ -298,7 +298,10 @@ describe("EntryResponseSchema", () => {
       wordCount: null,
       noteFolderId: null,
       noteFolderPath: null,
-      localDate: "2026-02-20",
+      projectId: null,
+      project: null,
+      tags: [],
+      localDateTime: "2026-02-20T09:30",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
     };
@@ -324,7 +327,10 @@ describe("EntryResponseSchema", () => {
       title: "My Note",
       noteFolderId: null,
       noteFolderPath: null,
-      localDate: "2026-02-20",
+      projectId: null,
+      project: null,
+      tags: [],
+      localDateTime: "2026-02-20T09:30",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
     };

@@ -11,7 +11,7 @@ export const AggregateTypeSchema = z.enum(["checkin", "note"]);
 export type AggregateType = z.infer<typeof AggregateTypeSchema>;
 
 export const DerivedDataSchema = z.object({
-  localDate: z.string(),
+  localDateTime: z.string(),
   checkInType: z.enum(["morning", "evening"]).nullable(),
   mood: z.number().int().min(1).max(10).nullable(),
   emotions: z.array(z.string()).nullable(),
