@@ -8,9 +8,10 @@
   },
   "scripts": {
     "start": "docker compose -f infra/docker-compose.yml up -d && pnpm db:migrate:deploy && pnpm dev",
+    "dev:stop": "docker compose -f infra/docker-compose.yml down",
     "e2e": "pnpm --filter diary-e2e e2e",
     "e2e:ui": "pnpm --filter diary-e2e e2e:ui",
-    "predev": "lsof -ti :4280 -ti :4281 2>/dev/null | xargs kill -9 2>/dev/null || true",
+    "predev": "npx kill-port 4280 4281 || true",
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
