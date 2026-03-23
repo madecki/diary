@@ -14,6 +14,7 @@ enum EntryType {
 enum CheckInType {
   morning
   evening
+  basic
 }
 
 enum RefType {
@@ -46,8 +47,7 @@ model Entry {
   noteFolderId String?
   noteFolder   NoteFolder? @relation(fields: [noteFolderId], references: [id], onDelete: SetNull)
   projectId    String?
-  project      Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  tags         Tag[]       @relation("EntryTags")
+  entryTags    EntryTag[]
   accessList   AccessList[]
 
   // Check-in fields (null / empty for notes)
@@ -70,31 +70,15 @@ model Entry {
   @@map("entries")
 }
 
-model Project {
-  id          String   @id
-  ownerId     String
-  name        String
-  description String?
-  color       String   @default("primary")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  entries     Entry[]
+model EntryTag {
+  entryId String
+  tagId   String
+  entry   Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
-  @@unique([ownerId, name])
-  @@index([ownerId])
-  @@map("projects")
-}
-
-model Tag {
-  id        String   @id
-  ownerId   String
-  name      String
-  createdAt DateTime @default(now())
-  entries   Entry[]  @relation("EntryTags")
-
-  @@unique([ownerId, name])
-  @@index([ownerId])
-  @@map("tags")
+  @@id([entryId, tagId])
+  @@index([entryId])
+  @@index([tagId])
+  @@map("entry_tags")
 }
 
 model NoteFolder {
@@ -171,4 +155,23 @@ model OutboxEvent {
   @@index([publishedAt, globalSequence])
   @@index([eventName, occurredAt])
   @@map("outbox_events")
+}
+
+model InsightRecord {
+  id          String    @id
+  ownerId     String
+  type        String // "daily" | "weekly"
+  date        String // ISO date YYYY-MM-DD
+  jobId       String
+  status      String    @default("pending") // pending | processing | completed | failed | cancelled
+  content     String?
+  promptHash  String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([ownerId, type, date])
+  @@index([status])
+  @@index([jobId])
+  @@index([ownerId])
+  @@map("insight_records")
 }

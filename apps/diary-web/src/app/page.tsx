@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Container, Stack, Spinner, ContentBox } from "@madecki/ui";
-import { fetchEntries } from "@/lib/api";
 import { EntriesPageContent } from "@/components/entries/EntriesPageContent";
+import { fetchEntries } from "@/lib/api";
 import type { EntryResponse } from "@diary/shared";
+import { Container, ContentBox, Spinner, Stack } from "@madecki/ui";
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
   const [entries, setEntries] = useState<EntryResponse[] | null>(null);
@@ -32,9 +32,7 @@ export default function HomePage() {
       <Container size="lg" centered>
         <Stack direction="vertical" gap="5" className="py-16">
           <ContentBox variant="warning">
-            <span className="text-sm">
-              Could not load entries. Make sure the API is running.
-            </span>
+            <span className="text-sm">Could not load entries. Make sure the API is running.</span>
           </ContentBox>
         </Stack>
       </Container>

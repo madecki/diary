@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Button, ButtonTransparent, GradientButton, Heading, Input, Spinner, Text } from "@madecki/ui";
+import { createProject, deleteProject, updateProject } from "@/lib/settings-api";
 import type { ProjectColor, ProjectResponse } from "@diary/shared";
 import { PROJECT_COLORS } from "@diary/shared";
-import { createProject, updateProject, deleteProject } from "@/lib/api";
+import {
+  Button,
+  ButtonTransparent,
+  GradientButton,
+  Heading,
+  Input,
+  Spinner,
+  Text,
+} from "@madecki/ui";
+import { useState } from "react";
 
 // ── Color picker (matches @madecki/ui Button variants) ─────────────────
 
@@ -37,7 +45,9 @@ function ColorPicker({
             aria-label={`Color ${c}`}
             onClick={() => onChange(c)}
             className={`h-8 w-8 rounded-sm ${COLOR_CLASS[c].chip} transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
-              value === c ? "ring-2 ring-white ring-offset-2 ring-offset-darkgray" : "opacity-80 hover:opacity-100"
+              value === c
+                ? "ring-2 ring-white ring-offset-2 ring-offset-darkgray"
+                : "opacity-80 hover:opacity-100"
             }`}
           />
         ))}
@@ -78,7 +88,9 @@ function AddForm({ onAdd, onCancel }: AddFormProps) {
 
   return (
     <div className="bg-darkgray rounded-sm border border-gray/30 p-5 flex flex-col gap-4">
-      <Heading level={4} size="sm" weight="semibold">New project</Heading>
+      <Heading level={4} size="sm" weight="semibold">
+        New project
+      </Heading>
       <div className="flex flex-col gap-3">
         <Input
           name="projectName"
@@ -122,7 +134,12 @@ function AddForm({ onAdd, onCancel }: AddFormProps) {
 
 interface EditFormProps {
   project: ProjectResponse;
-  onSave: (id: string, name: string, description: string | null, color: ProjectColor) => Promise<void>;
+  onSave: (
+    id: string,
+    name: string,
+    description: string | null,
+    color: ProjectColor,
+  ) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -194,7 +211,12 @@ interface ProjectCardProps {
   onDelete: (p: ProjectResponse) => void;
   isEditing: boolean;
   isDeleting: boolean;
-  onSave: (id: string, name: string, description: string | null, color: ProjectColor) => Promise<void>;
+  onSave: (
+    id: string,
+    name: string,
+    description: string | null,
+    color: ProjectColor,
+  ) => Promise<void>;
   onCancelEdit: () => void;
 }
 
@@ -228,11 +250,7 @@ function ProjectCard({
             )}
           </div>
           <div className="flex gap-2 shrink-0">
-            <ButtonTransparent
-              variant="neutral"
-              type="button"
-              onClick={() => onEdit(project)}
-            >
+            <ButtonTransparent variant="neutral" type="button" onClick={() => onEdit(project)}>
               Edit
             </ButtonTransparent>
             <Button
@@ -271,7 +289,12 @@ export function ProjectsSettings({ projects, isLoading, onRefresh }: ProjectsSet
     onRefresh();
   }
 
-  async function handleSave(id: string, name: string, description: string | null, color: ProjectColor) {
+  async function handleSave(
+    id: string,
+    name: string,
+    description: string | null,
+    color: ProjectColor,
+  ) {
     await updateProject(id, { name, description, color });
     setEditingId(null);
     onRefresh();
@@ -294,7 +317,9 @@ export function ProjectsSettings({ projects, isLoading, onRefresh }: ProjectsSet
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <Heading level={3} size="md" weight="semibold">Projects</Heading>
+          <Heading level={3} size="md" weight="semibold">
+            Projects
+          </Heading>
           <Text size="sm" color="muted">
             Group notes across folders into a project.
           </Text>
@@ -319,10 +344,14 @@ export function ProjectsSettings({ projects, isLoading, onRefresh }: ProjectsSet
       {isLoading ? (
         <div className="flex items-center gap-2 py-3">
           <Spinner size="sm" />
-          <Text size="sm" color="muted">Loading…</Text>
+          <Text size="sm" color="muted">
+            Loading…
+          </Text>
         </div>
       ) : projects.length === 0 && !showAdd ? (
-        <Text size="sm" color="muted">No projects yet. Create one to organise your notes.</Text>
+        <Text size="sm" color="muted">
+          No projects yet. Create one to organise your notes.
+        </Text>
       ) : (
         <div className="flex flex-col gap-3">
           {projects.map((project) => (

@@ -1,9 +1,9 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, type CheckInType, type EntryType, type Prisma } from "@prisma/client";
-import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { type CheckInType, type EntryType, type Prisma, PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 config({ path: resolve(__dirname, "../.env") });
@@ -21,7 +21,9 @@ const folderCache = new Map<string, string>();
 
 async function main() {
   const files = await collectMarkdownFiles(backupDir);
-  const selected = includeDeleted ? files : files.filter((f) => !f.includes(`${join("", "_deleted")}`));
+  const selected = includeDeleted
+    ? files
+    : files.filter((f) => !f.includes(`${join("", "_deleted")}`));
 
   let restored = 0;
   let skipped = 0;
@@ -80,8 +82,7 @@ async function main() {
     if (type === "note") {
       const title = toStringOrNull(parsed.frontmatter["title"]) ?? "Untitled";
       const plainText = extractNotePlainText(parsed.body);
-      const wordCount =
-        toIntOrNull(parsed.frontmatter["word_count"]) ?? countWords(plainText);
+      const wordCount = toIntOrNull(parsed.frontmatter["word_count"]) ?? countWords(plainText);
       baseData.title = title;
       baseData.plainText = plainText;
       baseData.wordCount = wordCount;
@@ -97,17 +98,34 @@ async function main() {
     } else {
       const checkInTypeRaw = toStringOrNull(parsed.frontmatter["check_in_type"]);
       baseData.checkInType =
-        checkInTypeRaw === "morning" || checkInTypeRaw === "evening"
+        checkInTypeRaw === "morning" || checkInTypeRaw === "evening" || checkInTypeRaw === "basic"
           ? (checkInTypeRaw as CheckInType)
           : null;
       baseData.mood = toIntOrNull(parsed.frontmatter["mood"]);
       baseData.emotions = toStringArray(parsed.frontmatter["emotions"]);
       baseData.triggers = toStringArray(parsed.frontmatter["triggers"]);
       baseData.whatImGratefulFor = extractListSection(parsed.body, "What I'm Grateful For");
-      baseData.whatWouldMakeDayGreat = extractListSection(parsed.body, "What Would Make Today Great");
+      baseData.whatWouldMakeDayGreat = extractListSection(
+        parsed.body,
+        "What Would Make Today Great",
+      );
       baseData.dailyAffirmation = extractTextSection(parsed.body, "Daily Affirmation");
       baseData.highlightsOfTheDay = extractListSection(parsed.body, "Highlights of the Day");
       baseData.whatDidILearnToday = extractTextSection(parsed.body, "What Did I Learn Today");
+      const noteSection = extractMultilineSection(parsed.body, "Note");
+      if (noteSection) {
+        baseData.plainText = noteSection;
+        baseData.wordCount = countWords(noteSection);
+        baseData.contentJson = {
+          blocks: noteSection
+            .split("\n")
+            .filter((line) => line.trim().length > 0)
+            .map((line) => ({
+              type: "paragraph",
+              content: [{ type: "text", text: line }],
+            })),
+        } as Prisma.InputJsonValue;
+      }
     }
 
     await prisma.entry.upsert({
@@ -130,7 +148,10 @@ async function ensureFolderPath(path: string | null): Promise<string | null> {
   let parentId: string | null = null;
   let currentPath = "";
 
-  for (const segment of path.split("/").map((s) => s.trim()).filter(Boolean)) {
+  for (const segment of path
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     currentPath = currentPath ? `${currentPath}/${segment}` : segment;
     const cachedId = folderCache.get(currentPath);
     if (cachedId) {
@@ -174,7 +195,9 @@ async function collectMarkdownFiles(root: string): Promise<string[]> {
   return results;
 }
 
-function parseBackupFile(content: string): { frontmatter: Record<string, unknown>; body: string } | null {
+function parseBackupFile(
+  content: string,
+): { frontmatter: Record<string, unknown>; body: string } | null {
   const lines = content.split("\n");
   if (lines[0] !== "---") return null;
   const endIdx = lines.indexOf("---", 1);
@@ -206,7 +229,10 @@ function parseBackupFile(content: string): { frontmatter: Record<string, unknown
 
   return {
     frontmatter,
-    body: lines.slice(endIdx + 1).join("\n").trim(),
+    body: lines
+      .slice(endIdx + 1)
+      .join("\n")
+      .trim(),
   };
 }
 
@@ -214,7 +240,10 @@ function extractNotePlainText(body: string): string {
   const lines = body.split("\n");
   const start = lines.findIndex((line) => line.startsWith("# "));
   if (start === -1) return body.trim();
-  return lines.slice(start + 1).join("\n").trim();
+  return lines
+    .slice(start + 1)
+    .join("\n")
+    .trim();
 }
 
 function extractListSection(body: string, heading: string): string[] {
@@ -244,6 +273,21 @@ function extractTextSection(body: string, heading: string): string | null {
   return out.length > 0 ? out.join("\n").trim() : null;
 }
 
+/** Like extractTextSection but keeps blank lines (for optional check-in Note body). */
+function extractMultilineSection(body: string, heading: string): string | null {
+  const lines = body.split("\n");
+  const idx = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (idx < 0) return null;
+  const out: string[] = [];
+  for (let i = idx + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (line.startsWith("## ")) break;
+    out.push(line);
+  }
+  const text = out.join("\n").trim();
+  return text.length > 0 ? text : null;
+}
+
 function toStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((v) => String(v)) : [];
 }
@@ -266,15 +310,12 @@ function toStringOrNull(value: unknown): string | null {
 }
 
 function countWords(text: string): number {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 function unquote(value: string): string {
-  if (value.startsWith("\"") && value.endsWith("\"")) {
-    return value.slice(1, -1).replace(/\\"/g, "\"").replace(/\\\\/g, "\\");
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
   return value;
 }

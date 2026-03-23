@@ -1,7 +1,7 @@
 "use client";
 
-import { Button, Spinner, Text } from "@madecki/ui";
 import type { ProjectResponse, TagResponse } from "@diary/shared";
+import { Button, Spinner, Text } from "@madecki/ui";
 
 // ── Project Picker ────────────────────────────────────────────────────
 
@@ -26,7 +26,9 @@ export function ProjectPicker({
       {isLoading ? (
         <div className="flex items-center gap-2 py-2">
           <Spinner size="sm" />
-          <Text size="sm" color="muted">Loading…</Text>
+          <Text size="sm" color="muted">
+            Loading…
+          </Text>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -96,10 +98,14 @@ export function TagPicker({ tags, value, onChange, isLoading, disabled }: TagPic
       {isLoading ? (
         <div className="flex items-center gap-2 py-2">
           <Spinner size="sm" />
-          <Text size="sm" color="muted">Loading…</Text>
+          <Text size="sm" color="muted">
+            Loading…
+          </Text>
         </div>
       ) : tags.length === 0 ? (
-        <Text size="sm" color="muted">No tags yet. Add some in Settings.</Text>
+        <Text size="sm" color="muted">
+          No tags yet. Add some in Settings.
+        </Text>
       ) : (
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => {

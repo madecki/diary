@@ -1,7 +1,7 @@
 "use client";
 
+import { Button, ButtonTransparent, Heading, Stack, Text } from "@madecki/ui";
 import { useEffect } from "react";
-import { Button, ButtonTransparent, Heading, Text, Stack } from "@madecki/ui";
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -34,10 +34,7 @@ export function DeleteConfirmModal({
       aria-modal="true"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-primary/80 backdrop-blur-sm"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm" onClick={onCancel} />
 
       {/* Modal */}
       <div className="relative z-10 w-full max-w-sm rounded-sm bg-darkgray border border-gray/50 p-7">
@@ -47,8 +44,7 @@ export function DeleteConfirmModal({
               Delete entry?
             </Heading>
             <Text color="muted" size="sm">
-              This action cannot be undone. The entry will be permanently
-              deleted.
+              This action cannot be undone. The entry will be permanently deleted.
             </Text>
           </Stack>
 
@@ -61,12 +57,7 @@ export function DeleteConfirmModal({
             >
               Cancel
             </ButtonTransparent>
-            <Button
-              variant="danger"
-              onClick={onConfirm}
-              disabled={isDeleting}
-              type="button"
-            >
+            <Button variant="danger" onClick={onConfirm} disabled={isDeleting} type="button">
               {isDeleting ? "Deleting…" : "Delete"}
             </Button>
           </Stack>

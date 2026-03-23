@@ -1,6 +1,12 @@
-import { Injectable, Inject, NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
+import { type CreateEmotionInput, DEFAULT_EMOTIONS, type UpdateEmotionInput } from "@diary/shared";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { ulid } from "ulidx";
-import { DEFAULT_EMOTIONS, type CreateEmotionInput, type UpdateEmotionInput } from "@diary/shared";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -23,7 +29,10 @@ export class EmotionsService {
       where: { ownerId: actorUserId },
       orderBy: { label: "asc" },
     });
-    const usageCounts = await this.getUsageCounts(emotions.map((e) => e.label), actorUserId);
+    const usageCounts = await this.getUsageCounts(
+      emotions.map((e) => e.label),
+      actorUserId,
+    );
     return emotions.map((e) => ({ ...e, usageCount: usageCounts[e.label] ?? 0 }));
   }
 
@@ -85,7 +94,10 @@ export class EmotionsService {
     await this.prisma.emotion.delete({ where: { id } });
   }
 
-  private async getUsageCounts(labels: string[], actorUserId: string): Promise<Record<string, number>> {
+  private async getUsageCounts(
+    labels: string[],
+    actorUserId: string,
+  ): Promise<Record<string, number>> {
     if (labels.length === 0) return {};
     const result: Record<string, number> = {};
     await Promise.all(

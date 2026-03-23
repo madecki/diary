@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, type Entry } from "@prisma/client";
-import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { type Entry, PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 config({ path: resolve(__dirname, "../.env") });
@@ -57,7 +57,12 @@ function renderNote(entry: Entry): string {
 }
 
 function renderCheckin(entry: Entry): string {
-  const typeLabel = entry.checkInType === "morning" ? "Morning" : "Evening";
+  const typeLabel =
+    entry.checkInType === "morning"
+      ? "Morning"
+      : entry.checkInType === "evening"
+        ? "Evening"
+        : "Basic";
   const title = `${typeLabel} Check-in — ${entry.localDateTime.replace("T", " ")}`;
 
   const frontmatter = buildFrontmatter({
@@ -84,19 +89,28 @@ function renderCheckin(entry: Entry): string {
     sections.push(`## Triggers\n${entry.triggers.map((t) => `- ${t}`).join("\n")}`);
   }
   if (entry.whatImGratefulFor.length > 0) {
-    sections.push(`## What I'm Grateful For\n${entry.whatImGratefulFor.map((v) => `- ${v}`).join("\n")}`);
+    sections.push(
+      `## What I'm Grateful For\n${entry.whatImGratefulFor.map((v) => `- ${v}`).join("\n")}`,
+    );
   }
   if (entry.whatWouldMakeDayGreat.length > 0) {
-    sections.push(`## What Would Make Today Great\n${entry.whatWouldMakeDayGreat.map((v) => `- ${v}`).join("\n")}`);
+    sections.push(
+      `## What Would Make Today Great\n${entry.whatWouldMakeDayGreat.map((v) => `- ${v}`).join("\n")}`,
+    );
   }
   if (entry.dailyAffirmation) {
     sections.push(`## Daily Affirmation\n${entry.dailyAffirmation}`);
   }
   if (entry.highlightsOfTheDay.length > 0) {
-    sections.push(`## Highlights of the Day\n${entry.highlightsOfTheDay.map((v) => `- ${v}`).join("\n")}`);
+    sections.push(
+      `## Highlights of the Day\n${entry.highlightsOfTheDay.map((v) => `- ${v}`).join("\n")}`,
+    );
   }
   if (entry.whatDidILearnToday) {
     sections.push(`## What Did I Learn Today\n${entry.whatDidILearnToday}`);
+  }
+  if (entry.plainText?.trim()) {
+    sections.push(`## Note\n\n${entry.plainText}`);
   }
 
   return sections.join("\n\n") + "\n";

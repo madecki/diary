@@ -4,8 +4,7 @@ import { ulid } from "ulidx";
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   use(req: any, res: any, next: () => void) {
-    const correlationId =
-      (req.headers?.["x-correlation-id"] as string) ?? ulid();
+    const correlationId = (req.headers?.["x-correlation-id"] as string) ?? ulid();
     req.headers["x-correlation-id"] = correlationId;
 
     if (typeof res.setHeader === "function") {

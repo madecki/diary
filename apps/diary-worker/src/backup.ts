@@ -105,10 +105,12 @@ function renderCheckin(
   const dailyAffirmation = derived.dailyAffirmation;
   const highlightsOfTheDay = derived.highlightsOfTheDay ?? [];
   const whatDidILearnToday = derived.whatDidILearnToday;
+  const checkInNotePlainText = derived.checkInNotePlainText;
   const createdAt = snapshot.createdAt as string;
   const updatedAt = snapshot.updatedAt as string;
 
-  const typeLabel = checkInType === "morning" ? "Morning" : "Evening";
+  const typeLabel =
+    checkInType === "morning" ? "Morning" : checkInType === "evening" ? "Evening" : "Basic";
   const title = `${typeLabel} Check-in — ${localDateTime.replace("T", " ")}`;
 
   const frontmatter = buildFrontmatter({
@@ -135,9 +137,7 @@ function renderCheckin(
     sections.push(`## Triggers\n${triggers.map((t) => `- ${t}`).join("\n")}`);
   }
   if (whatImGratefulFor.length > 0) {
-    sections.push(
-      `## What I'm Grateful For\n${whatImGratefulFor.map((v) => `- ${v}`).join("\n")}`,
-    );
+    sections.push(`## What I'm Grateful For\n${whatImGratefulFor.map((v) => `- ${v}`).join("\n")}`);
   }
   if (whatWouldMakeDayGreat.length > 0) {
     sections.push(
@@ -154,6 +154,9 @@ function renderCheckin(
   }
   if (whatDidILearnToday) {
     sections.push(`## What Did I Learn Today\n${whatDidILearnToday}`);
+  }
+  if (checkInNotePlainText?.trim()) {
+    sections.push(`## Note\n\n${checkInNotePlainText}`);
   }
 
   return sections.join("\n\n") + "\n";

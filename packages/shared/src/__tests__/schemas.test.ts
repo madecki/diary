@@ -1,15 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   CreateCheckinSchema,
+  CreateNoteFolderSchema,
   CreateNoteSchema,
-  UpdateCheckinSchema,
-  UpdateNoteSchema,
-  ListEntriesQuerySchema,
   DiaryEventPayloadSchema,
   EntryResponseSchema,
+  ListEntriesQuerySchema,
   OutboxQuerySchema,
   ReplayBodySchema,
-  CreateNoteFolderSchema,
+  UpdateCheckinSchema,
+  UpdateNoteSchema,
 } from "../index.js";
 
 describe("CreateCheckinSchema", () => {
@@ -43,7 +43,10 @@ describe("CreateCheckinSchema", () => {
   });
 
   it("accepts optional localDateTime", () => {
-    const result = CreateCheckinSchema.parse({ ...validMorning, localDateTime: "2026-02-20T09:30" });
+    const result = CreateCheckinSchema.parse({
+      ...validMorning,
+      localDateTime: "2026-02-20T09:30",
+    });
     expect(result.localDateTime).toBe("2026-02-20T09:30");
   });
 
@@ -57,9 +60,7 @@ describe("CreateCheckinSchema", () => {
   });
 
   it("rejects when dailyAffirmation is blank", () => {
-    expect(() =>
-      CreateCheckinSchema.parse({ ...validMorning, dailyAffirmation: "   " }),
-    ).toThrow();
+    expect(() => CreateCheckinSchema.parse({ ...validMorning, dailyAffirmation: "   " })).toThrow();
   });
 
   it("rejects missing mood", () => {
@@ -104,6 +105,50 @@ describe("CreateCheckinSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts valid basic check-in with required note", () => {
+    const result = CreateCheckinSchema.parse({
+      checkInType: "basic" as const,
+      mood: 5,
+      emotions: ["calm"],
+      triggers: ["work"],
+      contentJson: { blocks: [] },
+      plainText: "Daily reflection.",
+      wordCount: 2,
+    });
+    expect(result.checkInType).toBe("basic");
+    expect(result.plainText).toBe("Daily reflection.");
+  });
+
+  it("rejects basic check-in without note", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({
+        checkInType: "basic" as const,
+        mood: 5,
+        emotions: ["calm"],
+        triggers: ["work"],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts morning check-in with optional rich note (all three fields)", () => {
+    const result = CreateCheckinSchema.parse({
+      ...validMorning,
+      contentJson: { blocks: [] },
+      plainText: "Side note",
+      wordCount: 2,
+    });
+    expect(result.plainText).toBe("Side note");
+  });
+
+  it("rejects partial optional note on create", () => {
+    expect(() =>
+      CreateCheckinSchema.parse({
+        ...validMorning,
+        plainText: "only this",
+      }),
+    ).toThrow();
+  });
 });
 
 describe("CreateNoteSchema", () => {
@@ -123,9 +168,7 @@ describe("CreateNoteSchema", () => {
   });
 
   it("rejects title longer than 200 characters", () => {
-    expect(() =>
-      CreateNoteSchema.parse({ ...valid, title: "x".repeat(201) }),
-    ).toThrow();
+    expect(() => CreateNoteSchema.parse({ ...valid, title: "x".repeat(201) })).toThrow();
   });
 });
 
@@ -161,6 +204,35 @@ describe("UpdateCheckinSchema", () => {
 
   it("rejects missing checkInType", () => {
     expect(() => UpdateCheckinSchema.parse({ dailyAffirmation: "test" })).toThrow();
+  });
+
+  it("accepts basic update with only mood", () => {
+    const result = UpdateCheckinSchema.parse({
+      checkInType: "basic",
+      mood: 4,
+    });
+    expect(result.checkInType).toBe("basic");
+  });
+
+  it("accepts clearing check-in note with null triple for morning", () => {
+    const result = UpdateCheckinSchema.parse({
+      checkInType: "morning",
+      contentJson: null,
+      plainText: null,
+      wordCount: null,
+    });
+    expect(result.plainText).toBeNull();
+  });
+
+  it("rejects clearing note on basic check-in", () => {
+    expect(() =>
+      UpdateCheckinSchema.parse({
+        checkInType: "basic",
+        contentJson: null,
+        plainText: null,
+        wordCount: null,
+      }),
+    ).toThrow();
   });
 });
 
@@ -220,6 +292,7 @@ describe("DiaryEventPayloadSchema", () => {
         dailyAffirmation: "I am ready",
         highlightsOfTheDay: null,
         whatDidILearnToday: null,
+        checkInNotePlainText: null,
       },
       metadata: { source: "diary", schema: "diary.event.v1" },
     },
@@ -230,9 +303,7 @@ describe("DiaryEventPayloadSchema", () => {
   });
 
   it("rejects wrong event version", () => {
-    expect(() =>
-      DiaryEventPayloadSchema.parse({ ...validEvent, eventVersion: 2 }),
-    ).toThrow();
+    expect(() => DiaryEventPayloadSchema.parse({ ...validEvent, eventVersion: 2 })).toThrow();
   });
 
   it("rejects wrong metadata source", () => {
@@ -299,8 +370,7 @@ describe("EntryResponseSchema", () => {
       noteFolderId: null,
       noteFolderPath: null,
       projectId: null,
-      project: null,
-      tags: [],
+      tagIds: [],
       localDateTime: "2026-02-20T09:30",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
@@ -328,8 +398,7 @@ describe("EntryResponseSchema", () => {
       noteFolderId: null,
       noteFolderPath: null,
       projectId: null,
-      project: null,
-      tags: [],
+      tagIds: [],
       localDateTime: "2026-02-20T09:30",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",

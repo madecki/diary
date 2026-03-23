@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { fetchEmotions, fetchTriggers } from "@/lib/api";
+import { fetchProjects, fetchTags } from "@/lib/settings-api";
+import type { EmotionResponse, ProjectResponse, TagResponse, TriggerResponse } from "@diary/shared";
 import { Heading, Hr, Text } from "@madecki/ui";
-import type { EmotionResponse, TriggerResponse, ProjectResponse, TagResponse } from "@diary/shared";
-import { fetchEmotions, fetchTriggers, fetchProjects, fetchTags } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
 import { EmotionsTriggersSettings } from "./EmotionsTriggersSettings";
 import { ProjectsSettings } from "./ProjectsSettings";
 import { TagsSettings } from "./TagsSettings";
@@ -76,15 +77,10 @@ export function SettingsContent() {
             />
           </div>
           <div className="bg-darkgray rounded-sm border border-gray/30 p-5">
-            <TagsSettings
-              tags={tags}
-              isLoading={isLoadingNotes}
-              onRefresh={loadNoteOptions}
-            />
+            <TagsSettings tags={tags} isLoading={isLoadingNotes} onRefresh={loadNoteOptions} />
           </div>
         </div>
       </div>
     </div>
   );
 }
-

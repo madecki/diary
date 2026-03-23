@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Query, Inject } from "@nestjs/common";
 import { OutboxQuerySchema, ReplayBodySchema } from "@diary/shared";
+import { Body, Controller, Get, Inject, Post, Query } from "@nestjs/common";
 import { EventsService } from "./events.service.js";
 
 @Controller("events")

@@ -24,6 +24,36 @@ export function truncate(text: string, maxLength = 160): string {
   return `${text.slice(0, maxLength).trimEnd()}…`;
 }
 
+/**
+ * Split plain text into a first sentence (up to . ! ?) and the remainder.
+ * If there is no sentence-ending punctuation, uses the first line vs following lines, else the whole string.
+ */
+export function splitFirstSentence(text: string): { head: string; tail: string } {
+  const t = text.trim();
+  if (!t) return { head: "", tail: "" };
+
+  const punct = t.match(/^([\s\S]{1,4000}?[.!?])(\s[\s\S]*|$)/);
+  if (punct?.[1]) {
+    const head = punct[1].trim();
+    const tail = t.slice(punct[1].length).trim();
+    return { head, tail };
+  }
+
+  const nl = t.indexOf("\n");
+  if (nl >= 0) {
+    return { head: t.slice(0, nl).trim(), tail: t.slice(nl + 1).trim() };
+  }
+
+  return { head: t, tail: "" };
+}
+
+/** First sentence (or first line) for list titles; capped for layout. */
+export function firstSentenceTitle(text: string, maxLength = 120): string {
+  const { head } = splitFirstSentence(text);
+  if (!head) return "";
+  return head.length > maxLength ? `${head.slice(0, maxLength - 1).trimEnd()}…` : head;
+}
+
 export function todayLocalDate(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -51,9 +81,7 @@ export function moodLabel(mood: number): string {
   return "Excellent";
 }
 
-export function moodColor(
-  mood: number,
-): "danger" | "warning" | "success" | "info" {
+export function moodColor(mood: number): "danger" | "warning" | "success" | "info" {
   if (mood <= 3) return "danger";
   if (mood <= 5) return "warning";
   if (mood <= 7) return "info";
@@ -106,9 +134,16 @@ export function extractFromBlocks(blocks: unknown[]): {
   }
 
   const plainText = lines.join("\n").trim();
-  const wordCount = plainText
-    ? plainText.split(/\s+/).filter(Boolean).length
-    : 0;
+  const wordCount = plainText ? plainText.split(/\s+/).filter(Boolean).length : 0;
 
   return { plainText, wordCount };
+}
+
+/** Block array for BlockNote `initialContent` from API `contentJson` ({ blocks } or raw array). */
+export function extractBlocks(contentJson: unknown): unknown[] {
+  if (!contentJson || typeof contentJson !== "object") return [];
+  const obj = contentJson as Record<string, unknown>;
+  if (Array.isArray(obj)) return obj;
+  if (Array.isArray(obj["blocks"])) return obj["blocks"] as unknown[];
+  return [];
 }

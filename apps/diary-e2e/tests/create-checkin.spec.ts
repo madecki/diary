@@ -1,5 +1,5 @@
-import { test, expect } from "../fixtures";
-import { resetDatabase, getEntryCount } from "../db";
+import { getEntryCount, resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
 
 test.describe("Create Check-in", () => {
   test.beforeEach(async () => {
@@ -9,7 +9,6 @@ test.describe("Create Check-in", () => {
   test("navigates to check-in form from homepage via Add new button", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
@@ -17,7 +16,7 @@ test.describe("Create Check-in", () => {
     await expect(page.getByText("How are you feeling today?")).toBeVisible();
   });
 
-  test("shows mood picker, emotions, triggers, and morning/evening toggle", async ({ page }) => {
+  test("shows mood picker, emotions, triggers, and check-in type toggle", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
     // Mood section
@@ -28,6 +27,8 @@ test.describe("Create Check-in", () => {
     // Toggle buttons
     await expect(page.getByRole("button", { name: "Morning" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Evening" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Basic" })).toBeVisible();
+    await expect(page.getByText("Note (optional)")).toBeVisible();
   });
 
   test("shows validation errors when submitting empty morning form", async ({ page }) => {
@@ -43,6 +44,18 @@ test.describe("Create Check-in", () => {
     await expect(page.getByText("Add at least one trigger")).toBeVisible();
     await expect(page.getByText("Enter at least one item").first()).toBeVisible();
     await expect(page.getByText("Daily affirmation is required")).toBeVisible();
+  });
+
+  test("shows validation errors when submitting empty basic form", async ({ page }) => {
+    await page.goto("/entries/new/checkin");
+
+    await page.getByRole("button", { name: "Basic" }).click();
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Mood is required")).toBeVisible();
+    await expect(page.getByText("Add at least one emotion")).toBeVisible();
+    await expect(page.getByText("Add at least one trigger")).toBeVisible();
+    await expect(page.getByText("Note is required for basic check-ins")).toBeVisible();
   });
 
   test("shows validation errors when submitting empty evening form", async ({ page }) => {
@@ -85,7 +98,6 @@ test.describe("Create Check-in", () => {
 
     await page.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
     const count = await getEntryCount();
@@ -94,6 +106,27 @@ test.describe("Create Check-in", () => {
     // After redirect, switch to check-ins tab to verify count
     await page.getByRole("button", { name: "Check-ins" }).click();
     await expect(page.getByText("1 check-in")).toBeVisible();
+  });
+
+  test("creates a basic check-in successfully", async ({ page }) => {
+    await page.goto("/entries/new/checkin");
+
+    await page.getByRole("button", { name: "Basic" }).click();
+    await page.getByRole("button", { name: "7", exact: true }).click();
+    await page.getByRole("button", { name: "happy" }).click();
+    await page.getByRole("button", { name: "exercise" }).click();
+
+    const editorSelector = ".bn-editor";
+    await page.waitForSelector(editorSelector, { timeout: 10_000 });
+    await page.click(editorSelector);
+    await page.keyboard.type("First sentence for the list. Second part here.");
+
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await page.waitForURL("/", { timeout: 10_000 });
+
+    const count = await getEntryCount();
+    expect(count).toBe(1);
   });
 
   test("creates an evening check-in successfully", async ({ page }) => {
@@ -111,21 +144,25 @@ test.describe("Create Check-in", () => {
     await page.getByRole("button", { name: "music" }).click();
 
     // Fill at least one highlight
-    await page.locator("input[placeholder='First highlight…']").first().fill("Completed a big task");
+    await page
+      .locator("input[placeholder='First highlight…']")
+      .first()
+      .fill("Completed a big task");
 
     // Fill what I learned
     await page.getByPlaceholder("Today I learned…").fill("Focus leads to results");
 
     await page.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
     const count = await getEntryCount();
     expect(count).toBe(1);
   });
 
-  test("reflections field does not exist in UI; mood, emotions, triggers DO exist", async ({ page }) => {
+  test("reflections field does not exist in UI; mood, emotions, triggers DO exist", async ({
+    page,
+  }) => {
     await page.goto("/entries/new/checkin");
 
     await expect(page.getByText("Reflections")).not.toBeVisible();
@@ -181,10 +218,11 @@ test.describe("Create Check-in", () => {
     // Type toggle buttons are disabled
     await expect(page.getByRole("button", { name: "Morning" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Evening" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Basic" })).toBeDisabled();
 
     resolveRequest();
 
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL("/", { timeout: 10_000 });
   });
 
   test("cannot submit multiple times — second click is ignored during save", async ({ page }) => {
@@ -216,7 +254,7 @@ test.describe("Create Check-in", () => {
 
     resolveRequest();
 
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
+    await page.waitForURL("/", { timeout: 10_000 });
     expect(callCount).toBe(1);
   });
 
@@ -238,9 +276,7 @@ test.describe("Create Check-in", () => {
     await expect(firstInput).toHaveValue("");
   });
 
-  test("can add a new emotion from check-in form and use it in check-in", async ({
-    page,
-  }) => {
+  test("can add a new emotion from check-in form and use it in check-in", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
     // Wait for emotions to finish loading (happy is a default emotion that
@@ -271,16 +307,13 @@ test.describe("Create Check-in", () => {
     await page.getByPlaceholder("I am…").fill("I am grateful");
 
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
     const count = await getEntryCount();
     expect(count).toBe(1);
   });
 
-  test("can add a new trigger from check-in form and use it in check-in", async ({
-    page,
-  }) => {
+  test("can add a new trigger from check-in form and use it in check-in", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
     // Wait for triggers to finish loading before clicking the add button.
@@ -294,9 +327,9 @@ test.describe("Create Check-in", () => {
     await dialog.getByRole("button", { name: "Neutral" }).click();
     await dialog.getByRole("button", { name: "Add" }).click();
 
-    await expect(
-      page.getByRole("button", { name: "e2e-trigger-from-checkin" }),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "e2e-trigger-from-checkin" })).toBeVisible({
+      timeout: 5000,
+    });
 
     await page.getByRole("button", { name: "Morning" }).click();
     await page.getByRole("button", { name: "7", exact: true }).click();
@@ -306,7 +339,6 @@ test.describe("Create Check-in", () => {
     await page.getByPlaceholder("I am…").fill("I am ready");
 
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
     const count = await getEntryCount();

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button, ButtonTransparent, Heading, Input, Stack, Text } from "@madecki/ui";
 import type { BrowseFolderItem } from "@diary/shared";
+import { Button, ButtonTransparent, Heading, Input, Stack, Text } from "@madecki/ui";
+import { useEffect, useState } from "react";
 
 interface RenameFolderModalProps {
   folder: BrowseFolderItem | null;
@@ -10,11 +10,7 @@ interface RenameFolderModalProps {
   onCancel: () => void;
 }
 
-export function RenameFolderModal({
-  folder,
-  onConfirm,
-  onCancel,
-}: RenameFolderModalProps) {
+export function RenameFolderModal({ folder, onConfirm, onCancel }: RenameFolderModalProps) {
   const [name, setName] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,20 +80,10 @@ export function RenameFolderModal({
           )}
 
           <Stack direction="horizontal" gap="3" justify="end">
-            <ButtonTransparent
-              variant="neutral"
-              onClick={onCancel}
-              disabled={isBusy}
-              type="button"
-            >
+            <ButtonTransparent variant="neutral" onClick={onCancel} disabled={isBusy} type="button">
               Cancel
             </ButtonTransparent>
-            <Button
-              variant="info"
-              onClick={handleRename}
-              disabled={isBusy}
-              type="button"
-            >
+            <Button variant="info" onClick={handleRename} disabled={isBusy} type="button">
               {isBusy ? "Renaming…" : "Rename"}
             </Button>
           </Stack>

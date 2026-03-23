@@ -1,49 +1,57 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from "@nestjs/common";
-import type { Entry, NoteFolder, Prisma } from "@prisma/client";
-import { ulid } from "ulidx";
 import {
-  type CreateCheckinInput,
-  type CreateNoteInput,
-  type CreateNoteFolderInput,
-  type RenameNoteFolderInput,
   type BrowseNotesResponse,
-  type ListEntriesQuery,
+  type CreateCheckinInput,
+  type CreateNoteFolderInput,
+  type CreateNoteInput,
+  type DiaryEventName,
+  type DiaryEventPayload,
+  EVENT_SCHEMA,
+  EVENT_SOURCE,
+  EVENT_VERSION,
   type EntryResponse,
+  type ListEntriesQuery,
   type ListEntriesResponse,
   type NoteFolderResponse,
-  type DiaryEventPayload,
-  type DiaryEventName,
+  type RenameNoteFolderInput,
   UpdateCheckinSchema,
   UpdateNoteSchema,
-  EVENT_VERSION,
-  EVENT_SOURCE,
-  EVENT_SCHEMA,
 } from "@diary/shared";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { type Entry, type NoteFolder, Prisma } from "@prisma/client";
+import { ulid } from "ulidx";
+import { InsightsService } from "../insights/insights.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 type TxClient = Parameters<Parameters<PrismaService["$transaction"]>[0]>[0];
 
 type EntryInclude = Entry & {
   noteFolder?: Pick<NoteFolder, "path"> | null;
-  project?: { id: string; name: string; color: string } | null;
-  tags?: { id: string; name: string }[];
+  entryTags?: { tagId: string }[];
 };
 
 const ENTRY_INCLUDE = {
   noteFolder: { select: { path: true } },
-  project: { select: { id: true, name: true, color: true } },
-  tags: { select: { id: true, name: true } },
+  entryTags: { select: { tagId: true } },
 } as const;
 
 @Injectable()
 export class EntriesService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(InsightsService) private readonly insights: InsightsService,
+  ) {}
 
   async createCheckin(input: CreateCheckinInput, actorUserId: string): Promise<EntryResponse> {
     const id = ulid();
     const localDateTime = input.localDateTime ?? todayLocalDateTime();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const typeSpecificData =
         input.checkInType === "morning"
           ? {
@@ -51,10 +59,21 @@ export class EntriesService {
               whatWouldMakeDayGreat: input.whatWouldMakeDayGreat,
               dailyAffirmation: input.dailyAffirmation,
             }
-          : {
-              highlightsOfTheDay: input.highlightsOfTheDay,
-              whatDidILearnToday: input.whatDidILearnToday,
-            };
+          : input.checkInType === "evening"
+            ? {
+                highlightsOfTheDay: input.highlightsOfTheDay,
+                whatDidILearnToday: input.whatDidILearnToday,
+              }
+            : {};
+
+      const noteData =
+        "contentJson" in input && input.contentJson !== undefined
+          ? {
+              contentJson: input.contentJson as Prisma.InputJsonValue,
+              plainText: input.plainText!,
+              wordCount: input.wordCount!,
+            }
+          : {};
 
       const entry = await tx.entry.create({
         data: {
@@ -67,6 +86,7 @@ export class EntriesService {
           checkInType: input.checkInType,
           localDateTime,
           ...typeSpecificData,
+          ...noteData,
         },
         include: ENTRY_INCLUDE,
       });
@@ -74,6 +94,9 @@ export class EntriesService {
       await this.writeOutboxEvent(tx, entry, "diary.entry.created", actorUserId);
       return toResponse(entry);
     });
+
+    this.insights.scheduleRegeneration(actorUserId);
+    return result;
   }
 
   async createNoteFolder(input: CreateNoteFolderInput): Promise<NoteFolderResponse> {
@@ -159,7 +182,7 @@ export class EntriesService {
     const id = ulid();
     const localDateTime = input.localDateTime ?? todayLocalDateTime();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const folder = await this.resolveFolderPath(tx, input.folderPath);
       const entry = await tx.entry.create({
         data: {
@@ -174,7 +197,11 @@ export class EntriesService {
           localDateTime,
           ...(input.projectId ? { projectId: input.projectId } : {}),
           ...(input.tagIds && input.tagIds.length > 0
-            ? { tags: { connect: input.tagIds.map((tagId) => ({ id: tagId })) } }
+            ? {
+                entryTags: {
+                  create: input.tagIds.map((tagId) => ({ tagId })),
+                },
+              }
             : {}),
         },
         include: ENTRY_INCLUDE,
@@ -183,6 +210,9 @@ export class EntriesService {
       await this.writeOutboxEvent(tx, entry, "diary.entry.created", actorUserId);
       return toResponse(entry);
     });
+
+    this.insights.scheduleRegeneration(actorUserId);
+    return result;
   }
 
   async getEntry(id: string, actorUserId: string): Promise<EntryResponse> {
@@ -266,25 +296,61 @@ export class EntriesService {
                 dailyAffirmation: data.dailyAffirmation,
               }),
             }
-          : {
-              ...(data.highlightsOfTheDay !== undefined && {
-                highlightsOfTheDay: data.highlightsOfTheDay,
-              }),
-              ...(data.whatDidILearnToday !== undefined && {
-                whatDidILearnToday: data.whatDidILearnToday,
-              }),
-            };
+          : data.checkInType === "evening"
+            ? {
+                ...(data.highlightsOfTheDay !== undefined && {
+                  highlightsOfTheDay: data.highlightsOfTheDay,
+                }),
+                ...(data.whatDidILearnToday !== undefined && {
+                  whatDidILearnToday: data.whatDidILearnToday,
+                }),
+              }
+            : {};
 
-      return this.prisma.$transaction(async (tx) => {
+      const typeClears =
+        data.checkInType === "basic"
+          ? {
+              whatImGratefulFor: [] as string[],
+              whatWouldMakeDayGreat: [] as string[],
+              dailyAffirmation: null,
+              highlightsOfTheDay: [] as string[],
+              whatDidILearnToday: null,
+            }
+          : data.checkInType === "morning"
+            ? {
+                highlightsOfTheDay: [] as string[],
+                whatDidILearnToday: null,
+              }
+            : {
+                whatImGratefulFor: [] as string[],
+                whatWouldMakeDayGreat: [] as string[],
+                dailyAffirmation: null,
+              };
+
+      const noteUpdate =
+        data.plainText !== undefined
+          ? {
+              contentJson:
+                data.contentJson === null
+                  ? Prisma.DbNull
+                  : (data.contentJson as Prisma.InputJsonValue),
+              plainText: data.plainText,
+              wordCount: data.wordCount ?? null,
+            }
+          : {};
+
+      const updatedResponse = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.entry.update({
           where: { id },
           data: {
             checkInType: data.checkInType,
+            ...typeClears,
             ...(data.mood !== undefined && { mood: data.mood }),
             ...(data.emotions !== undefined && { emotions: data.emotions }),
             ...(data.triggers !== undefined && { triggers: data.triggers }),
             ...(data.localDateTime !== undefined && { localDateTime: data.localDateTime }),
             ...typeSpecificData,
+            ...noteUpdate,
           },
           include: ENTRY_INCLUDE,
         });
@@ -292,10 +358,12 @@ export class EntriesService {
         await this.writeOutboxEvent(tx, updated, "diary.entry.updated", actorUserId);
         return toResponse(updated);
       });
+      this.insights.scheduleRegeneration(actorUserId);
+      return updatedResponse;
     }
 
     const data = UpdateNoteSchema.parse(body);
-    return this.prisma.$transaction(async (tx) => {
+    const noteResponse = await this.prisma.$transaction(async (tx) => {
       let noteFolderId: string | null | undefined = undefined;
       if (data.folderPath !== undefined) {
         if (data.folderPath === null) {
@@ -319,7 +387,10 @@ export class EntriesService {
           ...(noteFolderId !== undefined && { noteFolderId }),
           ...(data.projectId !== undefined && { projectId: data.projectId }),
           ...(data.tagIds !== undefined && {
-            tags: { set: data.tagIds.map((tagId) => ({ id: tagId })) },
+            entryTags: {
+              deleteMany: {},
+              create: data.tagIds.map((tagId) => ({ tagId })),
+            },
           }),
         },
         include: ENTRY_INCLUDE,
@@ -328,11 +399,16 @@ export class EntriesService {
       await this.writeOutboxEvent(tx, updated, "diary.entry.updated", actorUserId);
       return toResponse(updated);
     });
+    this.insights.scheduleRegeneration(actorUserId);
+    return noteResponse;
   }
 
   // ── Access control helpers ───────────────────────────────────────
 
-  private async assertReadAccess(entry: { id: string; ownerId: string | null }, userId: string): Promise<void> {
+  private async assertReadAccess(
+    entry: { id: string; ownerId: string | null },
+    userId: string,
+  ): Promise<void> {
     if (entry.ownerId === userId) return;
     const access = await this.prisma.accessList.findUnique({
       where: { entryId_userId: { entryId: entry.id, userId } },
@@ -342,7 +418,10 @@ export class EntriesService {
     }
   }
 
-  private async assertWriteAccess(entry: { id: string; ownerId: string | null }, userId: string): Promise<void> {
+  private async assertWriteAccess(
+    entry: { id: string; ownerId: string | null },
+    userId: string,
+  ): Promise<void> {
     if (entry.ownerId === userId) return;
     const access = await this.prisma.accessList.findUnique({
       where: { entryId_userId: { entryId: entry.id, userId } },
@@ -424,18 +503,14 @@ export class EntriesService {
           mood: entry.mood ?? null,
           emotions: entry.emotions.length > 0 ? entry.emotions : null,
           triggers: entry.triggers.length > 0 ? entry.triggers : null,
-          whatImGratefulFor:
-            entry.whatImGratefulFor.length > 0 ? entry.whatImGratefulFor : null,
+          whatImGratefulFor: entry.whatImGratefulFor.length > 0 ? entry.whatImGratefulFor : null,
           whatWouldMakeDayGreat:
-            entry.whatWouldMakeDayGreat.length > 0
-              ? entry.whatWouldMakeDayGreat
-              : null,
+            entry.whatWouldMakeDayGreat.length > 0 ? entry.whatWouldMakeDayGreat : null,
           dailyAffirmation: entry.dailyAffirmation ?? null,
-          highlightsOfTheDay:
-            entry.highlightsOfTheDay.length > 0
-              ? entry.highlightsOfTheDay
-              : null,
+          highlightsOfTheDay: entry.highlightsOfTheDay.length > 0 ? entry.highlightsOfTheDay : null,
           whatDidILearnToday: entry.whatDidILearnToday ?? null,
+          checkInNotePlainText:
+            entry.type === "checkin" ? (entry.plainText?.trim() ? entry.plainText : null) : null,
         },
         metadata: { source: EVENT_SOURCE, schema: EVENT_SCHEMA },
       },
@@ -465,7 +540,8 @@ export class EntriesService {
       if (newPath === normalized) return toNoteFolderResponse(folder);
 
       const conflict = await tx.noteFolder.findUnique({ where: { path: newPath } });
-      if (conflict) throw new BadRequestException(`A folder named '${trimmedName}' already exists here`);
+      if (conflict)
+        throw new BadRequestException(`A folder named '${trimmedName}' already exists here`);
 
       const descendants = await tx.noteFolder.findMany({
         where: { path: { startsWith: `${normalized}/` } },
@@ -487,10 +563,7 @@ export class EntriesService {
     });
   }
 
-  private async resolveFolderPath(
-    tx: TxClient,
-    rawPath?: string,
-  ): Promise<NoteFolder | null> {
+  private async resolveFolderPath(tx: TxClient, rawPath?: string): Promise<NoteFolder | null> {
     const normalized = normalizeFolderPath(rawPath);
     if (!normalized) return null;
 
@@ -542,8 +615,7 @@ function toResponse(entry: EntryInclude): EntryResponse {
     noteFolderId: entry.noteFolderId,
     noteFolderPath: entry.noteFolder?.path ?? null,
     projectId: entry.projectId ?? null,
-    project: (entry.project ?? null) as EntryResponse["project"],
-    tags: entry.tags ?? [],
+    tagIds: entry.entryTags?.map((t) => t.tagId) ?? [],
     mood: entry.mood,
     emotions: entry.emotions,
     triggers: entry.triggers,

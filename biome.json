@@ -11,7 +11,15 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": false,
+      "correctness": {
+        "recommended": true,
+        "noUnusedVariables": "warn"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noExplicitAny": "off"
+      }
     }
   },
   "formatter": {
@@ -21,6 +29,9 @@
     "lineWidth": 100
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "quoteStyle": "double",
       "semicolons": "always"

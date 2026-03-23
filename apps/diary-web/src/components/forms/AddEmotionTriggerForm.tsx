@@ -1,21 +1,17 @@
 "use client";
 
+import { ButtonTransparent, GradientButton, Heading, Input, Stack, Text } from "@madecki/ui";
 import { useState } from "react";
-import {
-  ButtonTransparent,
-  GradientButton,
-  Heading,
-  Input,
-  Stack,
-  Text,
-} from "@madecki/ui";
 
 export type RefType = "difficult" | "neutral" | "pleasant";
 
 const TYPE_BG: Record<RefType, { on: string; off: string }> = {
   difficult: { on: "bg-danger text-white", off: "bg-danger/10 text-danger hover:bg-danger/20" },
   neutral: { on: "bg-warning text-primary", off: "bg-warning/10 text-warning hover:bg-warning/20" },
-  pleasant: { on: "bg-success text-primary", off: "bg-success/10 text-success hover:bg-success/20" },
+  pleasant: {
+    on: "bg-success text-primary",
+    off: "bg-success/10 text-success hover:bg-success/20",
+  },
 };
 
 const REF_TYPES: RefType[] = ["difficult", "neutral", "pleasant"];
@@ -57,11 +53,7 @@ export interface AddEmotionTriggerFormProps {
   onCancel: () => void;
 }
 
-export function AddEmotionTriggerForm({
-  kind,
-  onAdd,
-  onCancel,
-}: AddEmotionTriggerFormProps) {
+export function AddEmotionTriggerForm({ kind, onAdd, onCancel }: AddEmotionTriggerFormProps) {
   const [label, setLabel] = useState("");
   const [type, setType] = useState<RefType>("neutral");
   const [isSaving, setIsSaving] = useState(false);
@@ -92,9 +84,7 @@ export function AddEmotionTriggerForm({
       <Input
         name="newLabel"
         label="Label"
-        placeholder={
-          kind === "emotion" ? "e.g. nervous, hopeful…" : "e.g. caffeine, deadlines…"
-        }
+        placeholder={kind === "emotion" ? "e.g. nervous, hopeful…" : "e.g. caffeine, deadlines…"}
         variant="secondary"
         onChange={(v) => {
           setLabel(v);
@@ -115,12 +105,7 @@ export function AddEmotionTriggerForm({
         <GradientButton type="button" disabled={isSaving} onClick={handleSubmit}>
           {isSaving ? "Adding…" : "Add"}
         </GradientButton>
-        <ButtonTransparent
-          variant="neutral"
-          type="button"
-          disabled={isSaving}
-          onClick={onCancel}
-        >
+        <ButtonTransparent variant="neutral" type="button" disabled={isSaving} onClick={onCancel}>
           Cancel
         </ButtonTransparent>
       </Stack>

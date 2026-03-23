@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
-import { API_URL } from "../playwright.config";
+import { expect, test } from "@playwright/test";
 import { resetDatabase } from "../db";
+import { API_URL } from "../playwright.config";
 
 /**
  * Direct API tests — exercise diary-api independently of the frontend.
@@ -91,6 +91,33 @@ test.describe("API – POST /entries/checkins", () => {
     expect(entry.whatDidILearnToday).toBe("Small steps lead to big results");
     expect(entry.whatImGratefulFor).toEqual([]);
     expect(entry.dailyAffirmation).toBeNull();
+  });
+
+  test("creates a basic check-in and returns the entry", async ({ request }) => {
+    const res = await request.post(`${API_URL}/entries/checkins`, {
+      data: {
+        checkInType: "basic",
+        mood: 5,
+        emotions: ["calm"],
+        triggers: ["work"],
+        contentJson: { blocks: [] },
+        plainText: "Short check-in note.",
+        wordCount: 3,
+        localDateTime: new Date().toISOString().slice(0, 16),
+      },
+    });
+
+    expect(res.status()).toBe(201);
+    const entry = await res.json();
+
+    expect(entry.type).toBe("checkin");
+    expect(entry.checkInType).toBe("basic");
+    expect(entry.mood).toBe(5);
+    expect(entry.plainText).toBe("Short check-in note.");
+    expect(entry.whatImGratefulFor).toEqual([]);
+    expect(entry.highlightsOfTheDay).toEqual([]);
+    expect(entry.dailyAffirmation).toBeNull();
+    expect(entry.whatDidILearnToday).toBeNull();
   });
 
   test("returns 400 for missing required fields on morning check-in", async ({ request }) => {

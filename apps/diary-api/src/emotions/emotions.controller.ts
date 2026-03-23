@@ -1,7 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Inject, HttpCode } from "@nestjs/common";
 import { CreateEmotionSchema, UpdateEmotionSchema } from "@diary/shared";
-import { EmotionsService } from "./emotions.service.js";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import { Actor } from "../common/actor.decorator.js";
+import { EmotionsService } from "./emotions.service.js";
 
 @Controller("emotions")
 export class EmotionsController {
@@ -19,7 +29,11 @@ export class EmotionsController {
   }
 
   @Patch(":id")
-  updateEmotion(@Param("id") id: string, @Body() body: unknown, @Actor() actor: { userId: string }) {
+  updateEmotion(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @Actor() actor: { userId: string },
+  ) {
     const input = UpdateEmotionSchema.parse(body);
     return this.emotions.updateEmotion(id, input, actor.userId);
   }

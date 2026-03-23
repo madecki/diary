@@ -1,7 +1,7 @@
 "use client";
 
+import { Button, Container, Heading, Stack, Text } from "@madecki/ui";
 import Link from "next/link";
-import { Container, Stack, Heading, Text, Button } from "@madecki/ui";
 
 export default function NotFound() {
   return (
@@ -14,9 +14,7 @@ export default function NotFound() {
           <Heading level={2} size="xl" weight="semibold">
             Page not found
           </Heading>
-          <Text color="muted">
-            This entry may have been deleted or the URL is incorrect.
-          </Text>
+          <Text color="muted">This entry may have been deleted or the URL is incorrect.</Text>
         </Stack>
         <Link href="/">
           <Button variant="primary" size="md">

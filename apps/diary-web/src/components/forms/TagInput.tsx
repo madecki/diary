@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, type KeyboardEvent } from "react";
 import { Button, Text } from "@madecki/ui";
+import { type KeyboardEvent, useRef, useState } from "react";
 
 interface TagInputProps {
   value: string[];
@@ -95,7 +95,11 @@ export function TagInput({
         )}
       </div>
 
-      {error && <Text size="sm" color="danger">{error}</Text>}
+      {error && (
+        <Text size="sm" color="danger">
+          {error}
+        </Text>
+      )}
     </div>
   );
 }

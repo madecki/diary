@@ -1,24 +1,29 @@
-import { execSync, spawn, type ChildProcess } from "node:child_process";
-import { writeFileSync, existsSync, unlinkSync } from "node:fs";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 
-// apps/diary-e2e is 2 levels deep from the monorepo root
+// apps/diary-e2e is 2 levels deep from the diary monorepo root (`diary/`).
 const ROOT_DIR = join(__dirname, "../..");
+/** Parent of `diary/` — OmniRadon workspace root when this repo is checked out as a sibling of `settings/`. */
+const WORKSPACE_ROOT = join(ROOT_DIR, "..");
+const SETTINGS_ROOT = join(WORKSPACE_ROOT, "settings");
 const STATE_FILE = join(__dirname, ".e2e-state.json");
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgresql://diary:diary@localhost:54320/diary_e2e";
+const SETTINGS_E2E_DATABASE_URL =
+  process.env.E2E_SETTINGS_DATABASE_URL ?? "postgresql://diary:diary@localhost:54320/settings_e2e";
 
 // Use dedicated test ports so the production app on 4280/4281 is never disturbed
 const FRONTEND_PORT = 4282;
 export const BACKEND_PORT = 4283;
+const SETTINGS_BACKEND_PORT = Number(process.env.E2E_SETTINGS_BACKEND_PORT ?? "4384");
 
 // Fixed credentials used by all E2E tests.
 // The token must match GATEWAY_SERVICE_TOKEN passed to diary-api below.
 // The user ID is a stable synthetic identity — all test data is owned by it.
 export const E2E_SERVICE_TOKEN =
-  process.env.E2E_SERVICE_TOKEN ??
-  "e2e-test-service-token-diary-e2e-do-not-use-in-production";
+  process.env.E2E_SERVICE_TOKEN ?? "e2e-test-service-token-diary-e2e-do-not-use-in-production";
 export const E2E_USER_ID = process.env.E2E_USER_ID ?? "e2e-test-user";
 
 // Dedicated backup dir for e2e tests — deterministic path, gitignored via diary-backups/
@@ -28,6 +33,7 @@ interface E2EState {
   frontendPid?: number;
   backendPid?: number;
   workerPid?: number;
+  settingsBackendPid?: number;
 }
 
 async function waitForApi(timeoutMs = 60_000): Promise<void> {
@@ -49,6 +55,25 @@ async function waitForApi(timeoutMs = 60_000): Promise<void> {
   throw new Error(`API did not become available within ${timeoutMs}ms`);
 }
 
+async function waitForSettingsApi(timeoutMs = 60_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`http://localhost:${SETTINGS_BACKEND_PORT}/projects`, {
+        headers: {
+          "x-service-token": E2E_SERVICE_TOKEN,
+          "x-user-id": E2E_USER_ID,
+        },
+      });
+      if (res.ok) return;
+    } catch {
+      // not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`settings-api did not become available within ${timeoutMs}ms`);
+}
+
 async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -63,12 +88,12 @@ async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
   throw new Error(`Port ${port} did not become available within ${timeoutMs}ms`);
 }
 
-async function ensureE2EDatabase(): Promise<void> {
-  const targetUrl = new URL(DATABASE_URL);
+async function ensureDatabaseExists(connectionUrl: string): Promise<void> {
+  const targetUrl = new URL(connectionUrl);
   const dbName = targetUrl.pathname.replace(/^\//, "");
   if (!dbName) throw new Error("E2E database name is missing");
 
-  const adminUrl = new URL(DATABASE_URL);
+  const adminUrl = new URL(connectionUrl);
   adminUrl.pathname = "/postgres";
 
   const client = new pg.Client({ connectionString: adminUrl.toString() });
@@ -81,6 +106,14 @@ async function ensureE2EDatabase(): Promise<void> {
   } finally {
     await client.end();
   }
+}
+
+async function ensureE2EDatabase(): Promise<void> {
+  await ensureDatabaseExists(DATABASE_URL);
+}
+
+async function ensureE2ESettingsDatabase(): Promise<void> {
+  await ensureDatabaseExists(SETTINGS_E2E_DATABASE_URL);
 }
 
 function killProcessOnPort(port: number): void {
@@ -96,16 +129,28 @@ function cleanupPreviousRun(): void {
     try {
       const raw = execSync(`cat "${STATE_FILE}"`).toString();
       const state: E2EState = JSON.parse(raw);
-      for (const pid of [state.frontendPid, state.backendPid, state.workerPid]) {
+      for (const pid of [
+        state.frontendPid,
+        state.backendPid,
+        state.workerPid,
+        state.settingsBackendPid,
+      ]) {
         if (pid) {
-          try { process.kill(pid, "SIGKILL"); } catch { /* already dead */ }
+          try {
+            process.kill(pid, "SIGKILL");
+          } catch {
+            /* already dead */
+          }
         }
       }
-    } catch { /* corrupted state */ }
+    } catch {
+      /* corrupted state */
+    }
     unlinkSync(STATE_FILE);
   }
   killProcessOnPort(FRONTEND_PORT);
   killProcessOnPort(BACKEND_PORT);
+  killProcessOnPort(SETTINGS_BACKEND_PORT);
 }
 
 function startProcess(
@@ -161,11 +206,30 @@ export default async function globalSetup(): Promise<void> {
 
   await ensureE2EDatabase();
 
+  const hasSettings =
+    existsSync(join(SETTINGS_ROOT, "package.json")) &&
+    existsSync(join(SETTINGS_ROOT, "apps/settings-api/package.json"));
+  if (!hasSettings) {
+    throw new Error(
+      "E2E requires ../settings (settings monorepo) next to diary/. Run from the OmniRadon workspace with both repos cloned.",
+    );
+  }
+  console.log("📦 Installing settings workspace dependencies...");
+  execSync("pnpm install --no-frozen-lockfile", { cwd: SETTINGS_ROOT, stdio: "inherit" });
+  await ensureE2ESettingsDatabase();
+
   console.log("📦 Running migrations...");
   execSync("pnpm db:migrate:deploy", {
     cwd: ROOT_DIR,
     stdio: "inherit",
     env: { ...process.env, DATABASE_URL },
+  });
+
+  console.log("📦 Running settings database migrations...");
+  execSync("pnpm --filter @settings/database db:migrate:deploy", {
+    cwd: SETTINGS_ROOT,
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: SETTINGS_E2E_DATABASE_URL },
   });
 
   console.log("🌱 Seeding reference data...");
@@ -194,6 +258,12 @@ export default async function globalSetup(): Promise<void> {
 
   console.log("🔧 Building shared packages...");
   execSync("pnpm --filter @diary/shared build", { cwd: ROOT_DIR, stdio: "inherit" });
+  execSync("pnpm --filter @settings/shared build", { cwd: SETTINGS_ROOT, stdio: "inherit" });
+  execSync("pnpm --filter @settings/database build", {
+    cwd: SETTINGS_ROOT,
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: SETTINGS_E2E_DATABASE_URL },
+  });
 
   console.log("🚀 Starting diary-api...");
   // Use `exec tsx` (no watch) so that file-system events during the test run
@@ -211,6 +281,18 @@ export default async function globalSetup(): Promise<void> {
     },
   );
 
+  console.log("🚀 Starting settings-api...");
+  const settingsBackendProc = startProcess(
+    "pnpm",
+    ["--filter", "settings-api", "exec", "tsx", "src/main.ts"],
+    SETTINGS_ROOT,
+    {
+      DATABASE_URL: SETTINGS_E2E_DATABASE_URL,
+      PORT: String(SETTINGS_BACKEND_PORT),
+      GATEWAY_SERVICE_TOKEN: E2E_SERVICE_TOKEN,
+    },
+  );
+
   console.log("🚀 Starting diary-web...");
   const frontendProc = startProcess("pnpm", ["--filter", "diary-web", "dev:e2e"], ROOT_DIR, {
     // Serve at root (no /mfe/diary prefix) so Playwright goto("/") and goto("/entries/...")
@@ -222,6 +304,8 @@ export default async function globalSetup(): Promise<void> {
     // E2E-only: used by next.config.ts rewrites + middleware to proxy server-side
     // /diary/:path* calls to diary-api with auth headers. Never set in production.
     E2E_API_TARGET: `http://localhost:${BACKEND_PORT}`,
+    E2E_SETTINGS_API_TARGET: `http://localhost:${SETTINGS_BACKEND_PORT}`,
+    E2E_SETTINGS_BACKEND_PORT: String(SETTINGS_BACKEND_PORT),
     E2E_SERVICE_TOKEN,
     E2E_USER_ID,
   });
@@ -238,7 +322,12 @@ export default async function globalSetup(): Promise<void> {
   writeFileSync(
     STATE_FILE,
     JSON.stringify(
-      { frontendPid: frontendProc.pid, backendPid: backendProc.pid, workerPid: workerProc.pid },
+      {
+        frontendPid: frontendProc.pid,
+        backendPid: backendProc.pid,
+        workerPid: workerProc.pid,
+        settingsBackendPid: settingsBackendProc.pid,
+      },
       null,
       2,
     ),
@@ -246,6 +335,8 @@ export default async function globalSetup(): Promise<void> {
 
   console.log("⏳ Waiting for API...");
   await waitForApi();
+  console.log("⏳ Waiting for settings-api...");
+  await waitForSettingsApi();
   console.log("⏳ Waiting for frontend...");
   await waitForPort(FRONTEND_PORT);
 

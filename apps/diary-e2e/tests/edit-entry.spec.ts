@@ -1,7 +1,7 @@
-import { test, expect } from "../fixtures";
-import { API_URL } from "../playwright.config";
-import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
 import { resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
+import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
+import { API_URL } from "../playwright.config";
 
 const AUTH_HEADERS = {
   "Content-Type": "application/json",
@@ -132,9 +132,7 @@ test.describe("Edit Entry", () => {
     await page.getByRole("button", { name: "Delete" }).first().click();
 
     await expect(page.getByRole("heading", { name: "Delete entry?" })).toBeVisible();
-    await expect(
-      page.getByText("This action cannot be undone"),
-    ).toBeVisible();
+    await expect(page.getByText("This action cannot be undone")).toBeVisible();
     const modal = page.getByRole("dialog");
     await expect(modal.getByRole("button", { name: "Cancel" })).toBeVisible();
   });
@@ -162,8 +160,7 @@ test.describe("Edit Entry", () => {
     await modal.getByRole("button", { name: "Delete" }).click();
 
     await page.waitForURL("/");
-    // After redirect, default view is notes
-    await expect(page.getByText("0 notes")).toBeVisible();
+    await expect(page.getByText("0 check-ins")).toBeVisible();
 
     const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
     expect(res.status).toBe(404);
@@ -178,7 +175,7 @@ test.describe("Edit Entry", () => {
     const modal = page.getByRole("dialog");
     await modal.getByRole("button", { name: "Delete" }).click();
 
-    await page.waitForURL("/");
+    await page.waitForURL(/\?view=notes/);
     await expect(page.getByText("0 notes")).toBeVisible();
 
     const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
@@ -215,7 +212,7 @@ test.describe("Edit Entry", () => {
 
     await page.getByRole("button", { name: "Save changes" }).click();
 
-    // Loading overlay must appear (only the SpinnerOverlay at this point)
+    // Loading overlay must appear (full-screen check-in save overlay)
     await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
 
     // Save button shows "Saving…" and is disabled
@@ -229,10 +226,10 @@ test.describe("Edit Entry", () => {
     // Type toggle buttons are disabled
     await expect(page.getByRole("button", { name: "Morning" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Evening" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Basic" })).toBeDisabled();
 
     resolveRequest();
 
-    await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
   });
 
@@ -263,7 +260,6 @@ test.describe("Edit Entry", () => {
 
     resolveRequest();
 
-    await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
     expect(callCount).toBe(1);
   });
@@ -276,10 +272,7 @@ test.describe("Edit Entry", () => {
 
     await page.getByRole("button", { name: "Save changes" }).click();
 
-    await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
-    // Default view is notes after redirect; switch to check-ins to verify
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
@@ -291,9 +284,7 @@ test.describe("Edit Entry", () => {
 
     await page.getByRole("button", { name: "Save changes" }).click();
 
-    await expect(page.getByText("Check-in updated!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
@@ -306,7 +297,7 @@ test.describe("Edit Entry", () => {
     await page.getByRole("button", { name: "Save changes" }).click();
 
     await expect(page.getByText("Note updated!")).toBeVisible({ timeout: 10_000 });
-    await page.waitForURL("/", { timeout: 10_000 });
+    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
     await expect(page.getByText("1 note")).toBeVisible();
   });
 });

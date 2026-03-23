@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Button, ButtonTransparent, Heading, Input, Stack, Text } from "@madecki/ui";
+import { useEffect, useState } from "react";
 
 interface CreateFolderModalProps {
   isOpen: boolean;
@@ -92,20 +92,10 @@ export function CreateFolderModal({
           )}
 
           <Stack direction="horizontal" gap="3" justify="end">
-            <ButtonTransparent
-              variant="neutral"
-              onClick={onCancel}
-              disabled={isBusy}
-              type="button"
-            >
+            <ButtonTransparent variant="neutral" onClick={onCancel} disabled={isBusy} type="button">
               Cancel
             </ButtonTransparent>
-            <Button
-              variant="info"
-              onClick={handleCreate}
-              disabled={isBusy}
-              type="button"
-            >
+            <Button variant="info" onClick={handleCreate} disabled={isBusy} type="button">
               {isBusy ? "Creating…" : "Create"}
             </Button>
           </Stack>

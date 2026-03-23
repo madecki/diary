@@ -1,8 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import type { Block } from "@blocknote/core";
 import { Spinner } from "@madecki/ui";
+import dynamic from "next/dynamic";
 
 const BlockNoteEditorComponent = dynamic(
   () =>
@@ -36,9 +36,7 @@ export function EditorWrapper({
 }: EditorWrapperProps) {
   return (
     <div className="flex flex-col gap-2">
-      {label && (
-        <label className="text-sm font-medium text-icongray">{label}</label>
-      )}
+      {label && <label className="text-sm font-medium text-icongray">{label}</label>}
       <div
         className={`rounded-sm border ${
           error ? "border-danger/60" : "border-gray/50"

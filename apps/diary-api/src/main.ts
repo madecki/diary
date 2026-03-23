@@ -1,19 +1,13 @@
 import "dotenv/config";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from "@nestjs/platform-fastify";
+import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module.js";
-import { ZodExceptionFilter } from "./common/zod-exception.filter.js";
 import { ActorGuard } from "./common/actor.guard.js";
+import { ZodExceptionFilter } from "./common/zod-exception.filter.js";
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter(),
-  );
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
 
   app.useGlobalFilters(new ZodExceptionFilter());
   app.useGlobalGuards(new ActorGuard());

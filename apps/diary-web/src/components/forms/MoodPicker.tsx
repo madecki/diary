@@ -27,10 +27,7 @@ export function MoodPicker({ value, onChange, error, disabled }: MoodPickerProps
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-icongray">
-        Mood{" "}
-        <span className="text-xs text-lightgray">
-          (1 = very low, 10 = excellent)
-        </span>
+        Mood <span className="text-xs text-lightgray">(1 = very low, 10 = excellent)</span>
       </label>
 
       <div className="flex flex-wrap gap-2">

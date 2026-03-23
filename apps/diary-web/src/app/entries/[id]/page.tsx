@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { Container, Stack, Spinner, Heading, Text, Button } from "@madecki/ui";
-import { fetchEntry } from "@/lib/api";
-import type { EntryResponse } from "@diary/shared";
 import { CheckinForm } from "@/components/forms/CheckinForm";
 import { NoteForm } from "@/components/forms/ShortNoteForm";
+import { fetchEntry } from "@/lib/api";
+import type { EntryResponse } from "@diary/shared";
+import { Button, Container, Heading, Spinner, Stack, Text } from "@madecki/ui";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function LoadingFallback() {
   return (
@@ -30,9 +30,7 @@ function NotFoundFallback() {
           <Heading level={2} size="xl" weight="semibold">
             Page not found
           </Heading>
-          <Text color="muted">
-            This entry may have been deleted or the URL is incorrect.
-          </Text>
+          <Text color="muted">This entry may have been deleted or the URL is incorrect.</Text>
         </Stack>
         <Link href="/">
           <Button variant="primary" size="md">

@@ -13,6 +13,31 @@ import { BACKEND_PORT, E2E_SERVICE_TOKEN, E2E_USER_ID } from "./global-setup";
 
 async function setupGatewayInterception(page: Page): Promise<void> {
   await page.route(
+    (url) => url.pathname.startsWith("/settings/"),
+    async (route) => {
+      const originalUrl = new URL(route.request().url());
+      const newPath = originalUrl.pathname.replace(/^\/settings/, "") || "/";
+      const settingsPort = process.env.E2E_SETTINGS_BACKEND_PORT ?? "4384";
+      const settingsUrl = `http://localhost:${settingsPort}${newPath}${originalUrl.search}`;
+
+      const headers = { ...route.request().headers() } as Record<string, string>;
+      delete headers["host"];
+      headers["x-service-token"] = E2E_SERVICE_TOKEN;
+      headers["x-user-id"] = E2E_USER_ID;
+
+      try {
+        const response = await route.fetch({ url: settingsUrl, headers });
+        await route.fulfill({ response });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("been closed") && !message.includes("was destroyed")) {
+          throw err;
+        }
+      }
+    },
+  );
+
+  await page.route(
     (url) => url.pathname.startsWith("/diary/"),
     async (route) => {
       const originalUrl = new URL(route.request().url());

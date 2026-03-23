@@ -1,6 +1,6 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import type { Prisma, OutboxEvent } from "@prisma/client";
 import type { OutboxQuery, ReplayBody } from "@diary/shared";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import type { OutboxEvent, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -36,8 +36,7 @@ export class EventsService {
         globalSequence: { lte: BigInt(body.toGlobalSequence) },
       });
     }
-    const where: Prisma.OutboxEventWhereInput =
-      conditions.length > 0 ? { AND: conditions } : {};
+    const where: Prisma.OutboxEventWhereInput = conditions.length > 0 ? { AND: conditions } : {};
 
     if (body.dryRun) {
       const count = await this.prisma.outboxEvent.count({ where });

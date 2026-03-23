@@ -1,37 +1,38 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { flushSync } from "react-dom";
-import { useRouter } from "next/navigation";
+import { EditorWrapper } from "@/components/editor/EditorWrapper";
+import { createNote, deleteEntry, updateEntry } from "@/lib/api";
+import { fetchProjects, fetchTags } from "@/lib/settings-api";
+import { extractBlocks, todayLocalDateTime } from "@/lib/utils";
 import type { Block } from "@blocknote/core";
-import {
-  Container,
-  Stack,
-  Heading,
-  Text,
-  Button,
-  ButtonTransparent,
-  GradientButton,
-  Input,
-  Hr,
-} from "@madecki/ui";
 import type { EntryResponse, ProjectResponse, TagResponse } from "@diary/shared";
 import {
-  createNote,
-  updateEntry,
-  deleteEntry,
-  fetchProjects,
-  fetchTags,
-} from "@/lib/api";
-import { todayLocalDateTime } from "@/lib/utils";
-import { EditorWrapper } from "@/components/editor/EditorWrapper";
-import { SuccessToast } from "./SuccessToast";
+  Button,
+  ButtonTransparent,
+  Container,
+  GradientButton,
+  Heading,
+  Hr,
+  Input,
+  Stack,
+  Text,
+} from "@madecki/ui";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { ProjectPicker, TagPicker } from "./NoteMetadataPickers";
+import { SuccessToast } from "./SuccessToast";
 
 interface NoteFormProps {
   entry?: EntryResponse;
   initialFolderPath?: string | null;
+}
+
+function notesListUrl(folderPath: string | null): string {
+  const q = new URLSearchParams({ view: "notes" });
+  if (folderPath) q.set("folder", folderPath);
+  return `/?${q.toString()}`;
 }
 
 export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
@@ -39,16 +40,14 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
   const isEdit = !!entry;
 
   const [title, setTitle] = useState(entry?.title ?? "");
-  const [dateTime, setDateTime] = useState<string>(
-    entry?.localDateTime ?? todayLocalDateTime(),
-  );
+  const [dateTime, setDateTime] = useState<string>(entry?.localDateTime ?? todayLocalDateTime());
   const folderPath = isEdit ? (entry?.noteFolderPath ?? null) : (initialFolderPath ?? null);
 
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [tags, setTags] = useState<TagResponse[]>([]);
   const [metaLoading, setMetaLoading] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(entry?.projectId ?? null);
-  const [tagIds, setTagIds] = useState<string[]>(entry?.tags?.map((t) => t.id) ?? []);
+  const [tagIds, setTagIds] = useState<string[]>(entry?.tagIds ?? []);
 
   useEffect(() => {
     Promise.all([fetchProjects(), fetchTags()])
@@ -106,7 +105,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
       const contentJson =
         editorBlocks.current.length > 0
           ? (editorBlocks.current as unknown as Record<string, unknown>[])
-          : (entry?.contentJson as Record<string, unknown>[] | undefined) ?? [];
+          : ((entry?.contentJson as Record<string, unknown>[] | undefined) ?? []);
 
       const plainText = editorPlainText.current || entry?.plainText || "";
       const wordCount = editorWordCount.current || entry?.wordCount || 0;
@@ -136,11 +135,10 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
       }
 
       setShowSuccess(true);
-      setTimeout(() => router.push("/"), 1200);
+      setTimeout(() => router.push(notesListUrl(folderPath)), 1200);
     } catch (err) {
       setErrors({
-        submit:
-          err instanceof Error ? err.message : "Failed to save. Try again.",
+        submit: err instanceof Error ? err.message : "Failed to save. Try again.",
       });
     } finally {
       setIsSaving(false);
@@ -161,11 +159,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
             </Text>
           </Stack>
 
-          <ButtonTransparent
-            variant="neutral"
-            onClick={() => router.back()}
-            type="button"
-          >
+          <ButtonTransparent variant="neutral" onClick={() => router.back()} type="button">
             ← Back
           </ButtonTransparent>
         </div>
@@ -208,7 +202,9 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
                 <Text size="sm" color="muted">
                   {isEdit ? "In folder:" : "Saving in:"}
                 </Text>
-                <Text size="sm" weight="semibold">{folderPath}</Text>
+                <Text size="sm" weight="semibold">
+                  {folderPath}
+                </Text>
               </div>
             )}
 
@@ -233,11 +229,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
             {/* Content editor */}
             <EditorWrapper
               label="Content"
-              initialContent={
-                entry?.contentJson
-                  ? extractBlocks(entry.contentJson)
-                  : undefined
-              }
+              initialContent={entry?.contentJson ? extractBlocks(entry.contentJson) : undefined}
               onChange={handleEditorChange}
               error={errors["content"]}
             />
@@ -273,11 +265,7 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
                 >
                   Cancel
                 </ButtonTransparent>
-                <GradientButton
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  type="button"
-                >
+                <GradientButton onClick={handleSave} disabled={isSaving} type="button">
                   {isSaving ? "Saving…" : isEdit ? "Save changes" : "Save"}
                 </GradientButton>
               </Stack>
@@ -300,19 +288,10 @@ export function NoteForm({ entry, initialFolderPath = null }: NoteFormProps) {
           onConfirm={async () => {
             await deleteEntry(entry.id);
             setShowDeleteModal(false);
-            router.push("/");
+            router.push(notesListUrl(entry.noteFolderPath ?? null));
           }}
         />
       )}
     </Container>
   );
 }
-
-function extractBlocks(contentJson: unknown): unknown[] {
-  if (!contentJson || typeof contentJson !== "object") return [];
-  const obj = contentJson as Record<string, unknown>;
-  if (Array.isArray(obj)) return obj;
-  if (Array.isArray(obj["blocks"])) return obj["blocks"] as unknown[];
-  return [];
-}
-

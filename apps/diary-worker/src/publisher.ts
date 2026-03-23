@@ -1,16 +1,10 @@
+import { DiaryEventPayloadSchema, NATS_STREAM_NAME, NATS_SUBJECTS } from "@diary/shared";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import type { OutboxEvent } from "@prisma/client";
-import {
-  connect,
-  type NatsConnection,
-  type JetStreamClient,
-  StringCodec,
-  headers,
-} from "nats";
-import { NATS_STREAM_NAME, NATS_SUBJECTS, DiaryEventPayloadSchema } from "@diary/shared";
-import { config } from "./config.js";
+import { type JetStreamClient, type NatsConnection, StringCodec, connect, headers } from "nats";
 import { MarkdownBackup } from "./backup.js";
+import { config } from "./config.js";
 
 export class OutboxPublisher {
   private prisma: PrismaClient;

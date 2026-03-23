@@ -1,9 +1,9 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_EMOTIONS, DEFAULT_TRIGGERS } from "@diary/shared";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 config({ path: resolve(__dirname, "../.env") });

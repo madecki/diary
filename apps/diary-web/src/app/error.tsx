@@ -1,7 +1,7 @@
 "use client";
 
+import { Button, Container, ContentBox, Heading, Stack, Text } from "@madecki/ui";
 import { useEffect } from "react";
-import { Container, Stack, Heading, Text, Button, ContentBox } from "@madecki/ui";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };

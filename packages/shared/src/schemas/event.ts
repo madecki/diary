@@ -12,7 +12,7 @@ export type AggregateType = z.infer<typeof AggregateTypeSchema>;
 
 export const DerivedDataSchema = z.object({
   localDateTime: z.string(),
-  checkInType: z.enum(["morning", "evening"]).nullable(),
+  checkInType: z.enum(["morning", "evening", "basic"]).nullable(),
   mood: z.number().int().min(1).max(10).nullable(),
   emotions: z.array(z.string()).nullable(),
   triggers: z.array(z.string()).nullable(),
@@ -21,6 +21,8 @@ export const DerivedDataSchema = z.object({
   dailyAffirmation: z.string().nullable(),
   highlightsOfTheDay: z.array(z.string()).nullable(),
   whatDidILearnToday: z.string().nullable(),
+  /** Plain text of optional rich note on check-ins (null if none). */
+  checkInNotePlainText: z.string().nullable(),
 });
 export type DerivedData = z.infer<typeof DerivedDataSchema>;
 

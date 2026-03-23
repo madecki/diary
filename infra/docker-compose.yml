@@ -1,3 +1,6 @@
+# Unique project name so this stack does not collide with settings/infra (same folder name "infra").
+name: diary
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -40,6 +43,11 @@ services:
       postgres:
         condition: service_healthy
 
+# Explicit volume names so data survives `name:` / project changes. Without this,
+# Compose prefixes volumes with the project name (e.g. diary_* vs infra_*) and
+# a rename creates a fresh empty DB while the old volume remains on disk.
 volumes:
   postgres_data:
+    name: infra_postgres_data
   nats_data:
+    name: infra_nats_data

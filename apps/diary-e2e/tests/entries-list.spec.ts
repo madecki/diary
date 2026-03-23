@@ -1,5 +1,5 @@
-import { test, expect } from "../fixtures";
 import { resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
 
 test.describe("Entries List", () => {
   test.beforeEach(async () => {
@@ -10,29 +10,28 @@ test.describe("Entries List", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "My Diary" })).toBeVisible();
-    await expect(page.getByText("0 notes")).toBeVisible();
-    await expect(
-      page.getByText("No notes yet. Add your first one!"),
-    ).toBeVisible();
+    await expect(page.getByText("0 check-ins")).toBeVisible();
+    await expect(page.getByText("No check-ins yet. Add your first one!")).toBeVisible();
     await expect(page.getByRole("link", { name: "Start journaling" })).not.toBeVisible();
   });
 
   test("shows Add new button in notes tab", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Notes" }).click();
     await expect(page.getByRole("link", { name: "Add new" })).toBeVisible();
   });
 
   test("shows Add new button in check-ins tab", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await expect(page.getByRole("link", { name: "Add new" })).toBeVisible();
   });
 
   test("shows Create folder button in notes tab", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Notes" }).click();
     await expect(page.getByRole("button", { name: "Create folder" })).toBeVisible();
   });
 
@@ -40,7 +39,7 @@ test.describe("Entries List", () => {
     await page.goto("/");
 
     await expect(
-      page.getByPlaceholder("Search notes by title and content…"),
+      page.getByPlaceholder("Search by title, content, emotions, triggers or affirmations…"),
     ).toBeVisible();
   });
 
@@ -53,10 +52,12 @@ test.describe("Entries List", () => {
     await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   });
 
-  test("notes tab is active by default", async ({ page }) => {
+  test("check-ins tab is active by default", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByPlaceholder("Search notes by title and content…")).toBeVisible();
+    await expect(
+      page.getByPlaceholder("Search by title, content, emotions, triggers or affirmations…"),
+    ).toBeVisible();
   });
 
   test("settings tab shows emotions and triggers sections", async ({ page }) => {
@@ -73,8 +74,6 @@ test.describe("Entries List", () => {
   test("settings tab hides search input", async ({ page }) => {
     await page.goto("/?view=settings");
 
-    await expect(
-      page.getByPlaceholder("Search notes by title and content…"),
-    ).not.toBeVisible();
+    await expect(page.getByPlaceholder("Search notes by title and content…")).not.toBeVisible();
   });
 });

@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
-import { API_URL } from "../playwright.config";
+import { expect, test } from "@playwright/test";
 import { resetDatabase } from "../db";
+import { API_URL } from "../playwright.config";
 
 test.describe("API – GET /emotions", () => {
   test("returns 200 with an array of emotions", async ({ request }) => {

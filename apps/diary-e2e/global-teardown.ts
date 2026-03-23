@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, unlinkSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { E2E_BACKUP_DIR } from "./global-setup";
 
@@ -9,6 +9,7 @@ interface E2EState {
   frontendPid?: number;
   backendPid?: number;
   workerPid?: number;
+  settingsBackendPid?: number;
 }
 
 function killProcessOnPort(port: number): void {
@@ -39,13 +40,17 @@ export default async function globalTeardown(): Promise<void> {
       killProcess(state.backendPid, "diary-api");
       killProcess(state.frontendPid, "diary-web");
       killProcess(state.workerPid, "diary-worker");
-    } catch { /* ignore */ }
+      killProcess(state.settingsBackendPid, "settings-api");
+    } catch {
+      /* ignore */
+    }
     unlinkSync(STATE_FILE);
   }
 
   // Only kill test ports — production app on 4280/4281 is intentionally left running
   killProcessOnPort(4282);
   killProcessOnPort(4283);
+  killProcessOnPort(4384);
 
   if (existsSync(E2E_BACKUP_DIR)) {
     rmSync(E2E_BACKUP_DIR, { recursive: true, force: true });

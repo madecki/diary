@@ -1,7 +1,14 @@
-import Link from "next/link";
-import { Heading, Text, Stack } from "@madecki/ui";
+import {
+  firstSentenceTitle,
+  formatDateTime,
+  moodColor,
+  moodLabel,
+  splitFirstSentence,
+  truncate,
+} from "@/lib/utils";
 import type { EntryResponse } from "@diary/shared";
-import { formatDateTime, truncate, moodLabel, moodColor } from "@/lib/utils";
+import { Heading, Stack, Text } from "@madecki/ui";
+import Link from "next/link";
 
 interface EntryCardProps {
   entry: EntryResponse;
@@ -11,14 +18,26 @@ function checkinTitle(entry: EntryResponse): string | null {
   if (entry.checkInType === "morning") {
     return entry.whatImGratefulFor.find((s) => s.trim()) ?? null;
   }
-  return entry.highlightsOfTheDay.find((s) => s.trim()) ?? null;
+  if (entry.checkInType === "evening") {
+    return entry.highlightsOfTheDay.find((s) => s.trim()) ?? null;
+  }
+  const note = entry.plainText?.trim();
+  if (!note) return null;
+  const titled = firstSentenceTitle(note);
+  return titled.length > 0 ? titled : null;
 }
 
 function checkinPreview(entry: EntryResponse): string | null {
   if (entry.checkInType === "morning") {
     return entry.dailyAffirmation ?? null;
   }
-  return entry.whatDidILearnToday ?? null;
+  if (entry.checkInType === "evening") {
+    return entry.whatDidILearnToday ?? null;
+  }
+  const note = entry.plainText?.trim();
+  if (!note) return null;
+  const { tail } = splitFirstSentence(note);
+  return tail ? truncate(tail, 150) : null;
 }
 
 export function EntryCard({ entry }: EntryCardProps) {
@@ -26,9 +45,7 @@ export function EntryCard({ entry }: EntryCardProps) {
   const dateTime = formatDateTime(entry.localDateTime);
 
   const title = isCheckin ? checkinTitle(entry) : entry.title;
-  const preview = isCheckin
-    ? checkinPreview(entry)
-    : truncate(entry.plainText ?? "", 150);
+  const preview = isCheckin ? checkinPreview(entry) : truncate(entry.plainText ?? "", 150);
 
   return (
     <Link href={`/entries/${entry.id}`} className="block group">
@@ -72,7 +89,11 @@ export function EntryCard({ entry }: EntryCardProps) {
 
                 {isCheckin && entry.checkInType && (
                   <span className="inline-flex items-center px-2 py-px rounded text-xs font-medium bg-gray/40 text-icongray">
-                    {entry.checkInType === "morning" ? "🌅 Morning" : "🌙 Evening"}
+                    {entry.checkInType === "morning"
+                      ? "🌅 Morning"
+                      : entry.checkInType === "evening"
+                        ? "🌙 Evening"
+                        : "📝 Basic"}
                   </span>
                 )}
               </div>

@@ -1,7 +1,7 @@
-import { test, expect } from "../fixtures";
-import { API_URL } from "../playwright.config";
+import { getEntryCount, resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
 import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
-import { resetDatabase, getEntryCount } from "../db";
+import { API_URL } from "../playwright.config";
 
 async function createNoteViaApi(
   title: string,
@@ -34,6 +34,7 @@ test.describe("Create Note", () => {
   test("navigates to note form from homepage via Add new button", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Notes" }).click();
     await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/note");
 
@@ -61,12 +62,14 @@ test.describe("Create Note", () => {
 
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
 
-    await page.waitForURL("/", { timeout: 10_000 });
+    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
 
     const count = await getEntryCount();
     expect(count).toBe(1);
 
-    const entryCard = page.locator('[class*="bg-darkgray"]').filter({ hasText: "Just a quick thought" });
+    const entryCard = page
+      .locator('[class*="bg-darkgray"]')
+      .filter({ hasText: "Just a quick thought" });
     await expect(entryCard).toBeVisible();
   });
 
@@ -85,12 +88,14 @@ test.describe("Create Note", () => {
 
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
 
-    await page.waitForURL("/", { timeout: 10_000 });
+    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
 
     await expect(page.getByRole("heading", { name: "Important Idea" })).toBeVisible();
   });
 
-  test("creates a note in the current folder when navigating from folder view", async ({ page }) => {
+  test("creates a note in the current folder when navigating from folder view", async ({
+    page,
+  }) => {
     await createNoteViaApi("Existing note", "already in folder", "work/blabla");
 
     await page.goto("/?view=notes");
@@ -111,11 +116,8 @@ test.describe("Create Note", () => {
 
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
-    await page.waitForURL("/", { timeout: 10_000 });
-
-    // Navigate back into the folder to verify the note was saved there
-    await page.getByRole("button", { name: "work" }).click();
-    await page.getByRole("button", { name: "blabla" }).click();
+    await page.waitForURL(/view=notes/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/folder=work%2Fblabla/);
 
     const newNoteCard = page.getByText("Note created inside folder.").locator("..").locator("..");
     await expect(newNoteCard.getByText("work/blabla")).toBeVisible();

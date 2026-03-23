@@ -1,7 +1,7 @@
-import { test, expect } from "../fixtures";
-import { API_URL } from "../playwright.config";
-import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
 import { resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
+import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "../global-setup";
+import { API_URL } from "../playwright.config";
 
 const AUTH_HEADERS = {
   "Content-Type": "application/json",
@@ -87,19 +87,17 @@ test.describe("Filter and Search", () => {
     await createNote("Book Notes", "Read about mindfulness and meditation");
   });
 
-  test("shows notes by default", async ({ page }) => {
+  test("shows check-ins by default", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("2 notes")).toBeVisible();
+    await expect(page.getByText("2 check-ins")).toBeVisible();
 
-    const shortNoteBadges = page.locator("span").filter({ hasText: /^Note$/ });
-    await expect(shortNoteBadges).toHaveCount(2);
+    const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
+    await expect(checkinBadges).toHaveCount(2);
   });
 
   test("filters by check-ins only", async ({ page }) => {
     await page.goto("/");
-
-    await page.getByRole("button", { name: "Check-ins" }).click();
 
     const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
     await expect(checkinBadges).toHaveCount(2);
@@ -117,7 +115,6 @@ test.describe("Filter and Search", () => {
   test("searches by gratitude item", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
@@ -131,13 +128,15 @@ test.describe("Filter and Search", () => {
   test("searches by daily affirmation", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("productive");
 
-    const morningCard = page.locator("span").filter({ hasText: /^Check-in$/ }).first();
+    const morningCard = page
+      .locator("span")
+      .filter({ hasText: /^Check-in$/ })
+      .first();
     await expect(morningCard).toBeVisible();
     await expect(page.getByText("Project Ideas")).not.toBeVisible();
   });
@@ -145,13 +144,15 @@ test.describe("Filter and Search", () => {
   test("searches by what I learned today", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Check-ins" }).click();
     const searchInput = page.getByPlaceholder(
       "Search by title, content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("management");
 
-    const eveningCard = page.locator("span").filter({ hasText: /^Check-in$/ }).first();
+    const eveningCard = page
+      .locator("span")
+      .filter({ hasText: /^Check-in$/ })
+      .first();
     await expect(eveningCard).toBeVisible();
     await expect(page.getByText("Book Notes")).not.toBeVisible();
   });
@@ -159,6 +160,7 @@ test.describe("Filter and Search", () => {
   test("searches by title", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Notes" }).click();
     const searchInput = page.getByPlaceholder("Search notes by title and content…");
     await searchInput.fill("Project");
 
@@ -169,6 +171,7 @@ test.describe("Filter and Search", () => {
   test("shows no results message when search has no matches", async ({ page }) => {
     await page.goto("/");
 
+    await page.getByRole("button", { name: "Notes" }).click();
     const searchInput = page.getByPlaceholder("Search notes by title and content…");
     await searchInput.fill("nonexistent query xyz123");
 

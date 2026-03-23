@@ -3,6 +3,8 @@ import { E2E_SERVICE_TOKEN, E2E_USER_ID } from "./global-setup";
 
 export const WEB_URL = process.env.WEB_URL ?? "http://localhost:4282";
 export const API_URL = process.env.API_URL ?? "http://localhost:4283";
+/** settings-api port started by global-setup (sibling `settings/` repo in the workspace). */
+export const SETTINGS_API_URL = process.env.SETTINGS_API_URL ?? "http://localhost:4384";
 
 export default defineConfig({
   testDir: "./tests",

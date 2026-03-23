@@ -10,26 +10,35 @@
  * redirected to /login (the shell login page, served through the gateway).
  */
 import type {
-  EntryResponse,
-  ListEntriesResponse,
   BrowseNotesResponse,
   CreateCheckinInput,
-  CreateNoteInput,
-  UpdateCheckinInput,
-  UpdateNoteInput,
-  EmotionResponse,
-  TriggerResponse,
-  ProjectResponse,
-  TagResponse,
   CreateEmotionInput,
-  UpdateEmotionInput,
+  CreateNoteInput,
   CreateTriggerInput,
+  EmotionResponse,
+  EntryResponse,
+  ListEntriesResponse,
+  TriggerResponse,
+  UpdateCheckinInput,
+  UpdateEmotionInput,
+  UpdateNoteInput,
   UpdateTriggerInput,
-  CreateProjectInput,
-  UpdateProjectInput,
-  CreateTagInput,
-  UpdateTagInput,
 } from "@diary/shared";
+
+export type InsightResponse = {
+  id: string;
+  type: "daily" | "weekly";
+  date: string;
+  status: string;
+  content: string | null;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type LatestInsightsResponse = {
+  daily: InsightResponse | null;
+  weekly: InsightResponse | null;
+};
 
 const API_BASE = "/diary";
 const LOGIN_PATH = "/login";
@@ -115,12 +124,25 @@ export function createNote(input: CreateNoteInput): Promise<EntryResponse> {
   return request("POST", "/entries/notes", input);
 }
 
-export function updateEntry(id: string, input: UpdateCheckinInput | UpdateNoteInput): Promise<EntryResponse> {
+export function updateEntry(
+  id: string,
+  input: UpdateCheckinInput | UpdateNoteInput,
+): Promise<EntryResponse> {
   return request("PATCH", `/entries/${id}`, input);
 }
 
 export function deleteEntry(id: string): Promise<void> {
   return request("DELETE", `/entries/${id}`);
+}
+
+// ── Insights ───────────────────────────────────────────────────────
+
+export function fetchLatestInsights(): Promise<LatestInsightsResponse> {
+  return request("GET", "/insights/latest");
+}
+
+export function fetchInsight(id: string): Promise<InsightResponse> {
+  return request("GET", `/insights/${id}`);
 }
 
 // ── Note folders ───────────────────────────────────────────────────
@@ -134,7 +156,10 @@ export function createNoteFolder(input: { path: string }): Promise<{ id: string;
   return request("POST", "/entries/note-folders", input);
 }
 
-export function renameNoteFolder(input: { path: string; newName: string }): Promise<{ id: string; path: string }> {
+export function renameNoteFolder(input: { path: string; newName: string }): Promise<{
+  id: string;
+  path: string;
+}> {
   return request("PATCH", "/entries/note-folders", input);
 }
 
@@ -178,40 +203,4 @@ export function updateTrigger(id: string, input: UpdateTriggerInput): Promise<Tr
 
 export function deleteTrigger(id: string): Promise<void> {
   return request("DELETE", `/triggers/${id}`);
-}
-
-// ── Projects ───────────────────────────────────────────────────────
-
-export function fetchProjects(): Promise<ProjectResponse[]> {
-  return request("GET", "/projects");
-}
-
-export function createProject(input: CreateProjectInput): Promise<ProjectResponse> {
-  return request("POST", "/projects", input);
-}
-
-export function updateProject(id: string, input: UpdateProjectInput): Promise<ProjectResponse> {
-  return request("PATCH", `/projects/${id}`, input);
-}
-
-export function deleteProject(id: string): Promise<void> {
-  return request("DELETE", `/projects/${id}`);
-}
-
-// ── Tags ───────────────────────────────────────────────────────────
-
-export function fetchTags(): Promise<TagResponse[]> {
-  return request("GET", "/tags");
-}
-
-export function createTag(input: CreateTagInput): Promise<TagResponse> {
-  return request("POST", "/tags", input);
-}
-
-export function updateTag(id: string, input: UpdateTagInput): Promise<TagResponse> {
-  return request("PATCH", `/tags/${id}`, input);
-}
-
-export function deleteTag(id: string): Promise<void> {
-  return request("DELETE", `/tags/${id}`);
 }

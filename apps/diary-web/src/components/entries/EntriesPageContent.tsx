@@ -1,24 +1,5 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  Container,
-  Stack,
-  Heading,
-  Text,
-  Button,
-  Input,
-  Tabs,
-  Spinner,
-} from "@madecki/ui";
-import type { BrowseFolderItem, EntryResponse, ListEntriesResponse } from "@diary/shared";
-import { EntryCard } from "./EntryCard";
-import { CreateFolderModal } from "./CreateFolderModal";
-import { DeleteFolderModal } from "./DeleteFolderModal";
-import { RenameFolderModal } from "./RenameFolderModal";
-import { SettingsContent } from "../settings/SettingsContent";
 import {
   browseNotes,
   createNoteFolder,
@@ -26,6 +7,17 @@ import {
   fetchEntries,
   renameNoteFolder,
 } from "@/lib/api";
+import type { BrowseFolderItem, EntryResponse, ListEntriesResponse } from "@diary/shared";
+import { Button, Container, Heading, Input, Spinner, Stack, Tabs, Text } from "@madecki/ui";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { InsightsPanel } from "../insights/InsightsPanel";
+import { SettingsContent } from "../settings/SettingsContent";
+import { CreateFolderModal } from "./CreateFolderModal";
+import { DeleteFolderModal } from "./DeleteFolderModal";
+import { EntryCard } from "./EntryCard";
+import { RenameFolderModal } from "./RenameFolderModal";
 
 const TYPE_TABS = [
   { label: "Notes", value: "notes" },
@@ -38,10 +30,7 @@ interface EntriesPageContentProps {
   initialCursor: string | null;
 }
 
-export function EntriesPageContent({
-  initialEntries,
-  initialCursor,
-}: EntriesPageContentProps) {
+export function EntriesPageContent({ initialEntries, initialCursor }: EntriesPageContentProps) {
   const [entries, setEntries] = useState<EntryResponse[]>(initialEntries ?? []);
   const [cursor, setCursor] = useState<string | null>(initialCursor ?? null);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +50,7 @@ export function EntriesPageContent({
 
   const urlView = searchParams.get("view");
   const view: "checkins" | "notes" | "settings" =
-    urlView === "checkins" ? "checkins" : urlView === "settings" ? "settings" : "notes";
+    urlView === "notes" ? "notes" : urlView === "settings" ? "settings" : "checkins";
   const folderFromUrl = normalizeFolderPath(searchParams.get("folder"));
 
   const setUrlState = useCallback(
@@ -78,21 +67,18 @@ export function EntriesPageContent({
     [pathname, router, searchParams],
   );
 
-  const loadNotes = useCallback(
-    async (path: string | null) => {
-      try {
-        const data = await browseNotes(path ?? undefined);
-        setNoteFolders(data.folders ?? []);
-        setNoteEntries(data.notes ?? []);
-        setCurrentFolderPath(data.currentPath ?? path);
-      } catch {
-        setNoteFolders([]);
-        setNoteEntries([]);
-        setCurrentFolderPath(path);
-      }
-    },
-    [],
-  );
+  const loadNotes = useCallback(async (path: string | null) => {
+    try {
+      const data = await browseNotes(path ?? undefined);
+      setNoteFolders(data.folders ?? []);
+      setNoteEntries(data.notes ?? []);
+      setCurrentFolderPath(data.currentPath ?? path);
+    } catch {
+      setNoteFolders([]);
+      setNoteEntries([]);
+      setCurrentFolderPath(path);
+    }
+  }, []);
 
   useEffect(() => {
     if (view !== "notes") return;
@@ -103,9 +89,7 @@ export function EntriesPageContent({
 
   const filtered = useMemo(() => {
     let result: EntryResponse[] =
-      view === "notes"
-        ? (noteEntries ?? [])
-        : (entries ?? []).filter((e) => e.type === "checkin");
+      view === "notes" ? (noteEntries ?? []) : (entries ?? []).filter((e) => e.type === "checkin");
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -122,8 +106,7 @@ export function EntriesPageContent({
           ].some((s) => s.toLowerCase().includes(q));
         }
         return (
-          (e.title ?? "").toLowerCase().includes(q) ||
-          (e.plainText ?? "").toLowerCase().includes(q)
+          (e.title ?? "").toLowerCase().includes(q) || (e.plainText ?? "").toLowerCase().includes(q)
         );
       });
     }
@@ -151,10 +134,7 @@ export function EntriesPageContent({
     isActive: t.value === view,
   }));
 
-  const checkins = useMemo(
-    () => (entries ?? []).filter((e) => e.type === "checkin"),
-    [entries],
-  );
+  const checkins = useMemo(() => (entries ?? []).filter((e) => e.type === "checkin"), [entries]);
 
   const breadcrumbSegments = (currentFolderPath ?? "")
     .split("/")
@@ -227,9 +207,7 @@ export function EntriesPageContent({
                           type="button"
                           onClick={() => setUrlState("notes", path)}
                           className={
-                            path === currentFolderPath
-                              ? "text-white"
-                              : "underline hover:text-white"
+                            path === currentFolderPath ? "text-white" : "underline hover:text-white"
                           }
                         >
                           {segment}
@@ -247,13 +225,11 @@ export function EntriesPageContent({
                         : "/entries/new/note"
                     }
                   >
-                    <Button variant="success" size="sm">Add new</Button>
+                    <Button variant="success" size="sm">
+                      Add new
+                    </Button>
                   </Link>
-                  <Button
-                    variant="info"
-                    size="sm"
-                    onClick={() => setShowCreateModal(true)}
-                  >
+                  <Button variant="info" size="sm" onClick={() => setShowCreateModal(true)}>
                     Create folder
                   </Button>
                 </Stack>
@@ -278,7 +254,9 @@ export function EntriesPageContent({
           {view === "checkins" && (
             <div className="flex justify-end">
               <Link href="/entries/new/checkin">
-                <Button variant="success" size="sm">Add new</Button>
+                <Button variant="success" size="sm">
+                  Add new
+                </Button>
               </Link>
             </div>
           )}
@@ -287,26 +265,29 @@ export function EntriesPageContent({
         {/* Settings tab */}
         {isSettings && <SettingsContent />}
 
+        {!isSettings && <InsightsPanel />}
+
         {/* Entries list */}
-        {!isSettings && ((filtered ?? []).length === 0 ? (
-          <div className="flex flex-col items-center gap-5 py-16 text-center">
-            <Text color="muted" size="lg">
-              {searchQuery
-                ? view === "notes"
-                  ? "No notes match your search in this folder."
-                  : "No entries match your search."
-                : view === "notes"
-                  ? "No notes yet. Add your first one!"
-                  : "No check-ins yet. Add your first one!"}
-            </Text>
-          </div>
-        ) : (
-          <Stack direction="vertical" gap="4">
-            {(filtered ?? []).map((entry) => (
-              <EntryCard key={entry.id} entry={entry} />
-            ))}
-          </Stack>
-        ))}
+        {!isSettings &&
+          ((filtered ?? []).length === 0 ? (
+            <div className="flex flex-col items-center gap-5 py-16 text-center">
+              <Text color="muted" size="lg">
+                {searchQuery
+                  ? view === "notes"
+                    ? "No notes match your search in this folder."
+                    : "No entries match your search."
+                  : view === "notes"
+                    ? "No notes yet. Add your first one!"
+                    : "No check-ins yet. Add your first one!"}
+              </Text>
+            </div>
+          ) : (
+            <Stack direction="vertical" gap="4">
+              {(filtered ?? []).map((entry) => (
+                <EntryCard key={entry.id} entry={entry} />
+              ))}
+            </Stack>
+          ))}
 
         {/* Load more (checkins only, loads from the paginated entries list) */}
         {!isSettings && cursor && !searchQuery && view === "checkins" && (
@@ -342,8 +323,7 @@ export function EntriesPageContent({
           if (!folderToDelete) return;
           setIsDeletingFolder(true);
           try {
-            const hasChildren =
-              folderToDelete.notesCount > 0 || folderToDelete.foldersCount > 0;
+            const hasChildren = folderToDelete.notesCount > 0 || folderToDelete.foldersCount > 0;
             await deleteNoteFolder(folderToDelete.path, hasChildren);
             setFolderToDelete(null);
             await loadNotes(currentFolderPath);

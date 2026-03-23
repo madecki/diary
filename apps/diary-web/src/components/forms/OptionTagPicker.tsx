@@ -1,8 +1,8 @@
 "use client";
 
+import type { EmotionResponse, TriggerResponse } from "@diary/shared";
 import { Button, Spinner, Text } from "@madecki/ui";
 import type { ColorVariants } from "@madecki/ui";
-import type { EmotionResponse, TriggerResponse } from "@diary/shared";
 
 type Option = EmotionResponse | TriggerResponse;
 

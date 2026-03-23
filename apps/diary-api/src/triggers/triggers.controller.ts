@@ -1,7 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Inject, HttpCode } from "@nestjs/common";
 import { CreateTriggerSchema, UpdateTriggerSchema } from "@diary/shared";
-import { TriggersService } from "./triggers.service.js";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import { Actor } from "../common/actor.decorator.js";
+import { TriggersService } from "./triggers.service.js";
 
 @Controller("triggers")
 export class TriggersController {
@@ -19,7 +29,11 @@ export class TriggersController {
   }
 
   @Patch(":id")
-  updateTrigger(@Param("id") id: string, @Body() body: unknown, @Actor() actor: { userId: string }) {
+  updateTrigger(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @Actor() actor: { userId: string },
+  ) {
     const input = UpdateTriggerSchema.parse(body);
     return this.triggers.updateTrigger(id, input, actor.userId);
   }

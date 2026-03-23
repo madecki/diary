@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { ContentBox } from "@madecki/ui";
+import { useEffect } from "react";
 
 interface SuccessToastProps {
   message: string;
@@ -9,11 +9,7 @@ interface SuccessToastProps {
   duration?: number;
 }
 
-export function SuccessToast({
-  message,
-  onDismiss,
-  duration = 3000,
-}: SuccessToastProps) {
+export function SuccessToast({ message, onDismiss, duration = 3000 }: SuccessToastProps) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, duration);
     return () => clearTimeout(timer);

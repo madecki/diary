@@ -1,6 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  AddEmotionTriggerForm,
+  type RefType,
+  TypeSelector,
+} from "@/components/forms/AddEmotionTriggerForm";
+import {
+  createEmotion,
+  createTrigger,
+  deleteEmotion,
+  deleteTrigger,
+  updateEmotion,
+  updateTrigger,
+} from "@/lib/api";
+import type { EmotionResponse, TriggerResponse } from "@diary/shared";
 import {
   Button,
   ButtonTransparent,
@@ -11,16 +24,7 @@ import {
   Stack,
   Text,
 } from "@madecki/ui";
-import type { EmotionResponse, TriggerResponse } from "@diary/shared";
-import {
-  createEmotion,
-  updateEmotion,
-  deleteEmotion,
-  createTrigger,
-  updateTrigger,
-  deleteTrigger,
-} from "@/lib/api";
-import { AddEmotionTriggerForm, TypeSelector, type RefType } from "@/components/forms/AddEmotionTriggerForm";
+import { useEffect, useState } from "react";
 
 type Item = EmotionResponse | TriggerResponse;
 
@@ -135,21 +139,14 @@ function ItemRow({ item, onEdit, onDelete, isDeleting }: ItemRowProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant={variant}
-        size="sm"
-        type="button"
-        onClick={() => onEdit(item)}
-      >
+      <Button variant={variant} size="sm" type="button" onClick={() => onEdit(item)}>
         {item.label}
       </Button>
       <div className="relative group">
         <button
           type="button"
           className={`text-xs px-1 py-0.5 transition-colors ${
-            isUsed
-              ? "text-lightgray/40 cursor-not-allowed"
-              : "text-danger hover:text-danger/80"
+            isUsed ? "text-lightgray/40 cursor-not-allowed" : "text-danger hover:text-danger/80"
           }`}
           onClick={() => !isUsed && onDelete(item)}
           disabled={isUsed || isDeleting}
@@ -267,7 +264,9 @@ function EmotionsTriggerSection({
         {isLoading ? (
           <div className="flex items-center gap-2 py-3">
             <Spinner size="sm" />
-            <Text size="sm" color="muted">Loading…</Text>
+            <Text size="sm" color="muted">
+              Loading…
+            </Text>
           </div>
         ) : items.length === 0 ? (
           <Text size="sm" color="muted">
@@ -350,8 +349,8 @@ export function EmotionsTriggersSettings({
           Check-in options
         </Heading>
         <Text size="sm" color="muted">
-          Customise the emotions and triggers available when filling in check-ins.
-          Editing a label updates it across all existing check-ins automatically.
+          Customise the emotions and triggers available when filling in check-ins. Editing a label
+          updates it across all existing check-ins automatically.
         </Text>
       </div>
 

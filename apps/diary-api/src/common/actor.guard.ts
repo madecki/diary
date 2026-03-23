@@ -1,11 +1,6 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from "@nestjs/common";
-import type { FastifyRequest } from "fastify";
 import * as crypto from "crypto";
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import type { FastifyRequest } from "fastify";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -31,7 +26,7 @@ export class ActorGuard implements CanActivate {
     if (!token || token.length < 32) {
       throw new Error(
         "GATEWAY_SERVICE_TOKEN must be set and at least 32 characters. " +
-        "Set the same value as DIARY_SERVICE_TOKEN in the gateway.",
+          "Set the same value as DIARY_SERVICE_TOKEN in the gateway.",
       );
     }
     this.serviceToken = token;
@@ -41,7 +36,11 @@ export class ActorGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     const incoming = request.headers["x-service-token"];
-    if (typeof incoming !== "string" || !incoming || !timingSafeEqual(incoming, this.serviceToken)) {
+    if (
+      typeof incoming !== "string" ||
+      !incoming ||
+      !timingSafeEqual(incoming, this.serviceToken)
+    ) {
       throw new UnauthorizedException("Invalid service token");
     }
 

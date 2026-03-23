@@ -1,15 +1,26 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Inject, HttpCode } from "@nestjs/common";
 import {
-  CreateCheckinSchema,
-  CreateNoteSchema,
-  CreateNoteFolderSchema,
   BrowseNotesQuerySchema,
+  CreateCheckinSchema,
+  CreateNoteFolderSchema,
+  CreateNoteSchema,
   DeleteNoteFolderQuerySchema,
-  RenameNoteFolderSchema,
   ListEntriesQuerySchema,
+  RenameNoteFolderSchema,
 } from "@diary/shared";
-import { EntriesService } from "./entries.service.js";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { Actor } from "../common/actor.decorator.js";
+import { EntriesService } from "./entries.service.js";
 
 @Controller("entries")
 export class EntriesController {

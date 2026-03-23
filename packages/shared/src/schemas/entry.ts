@@ -1,24 +1,10 @@
 import { z } from "zod";
-import { ProjectColorSchema } from "./reference.js";
 
 export const EntryTypeSchema = z.enum(["checkin", "note"]);
 export type EntryType = z.infer<typeof EntryTypeSchema>;
 
-export const CheckInTypeSchema = z.enum(["morning", "evening"]);
+export const CheckInTypeSchema = z.enum(["morning", "evening", "basic"]);
 export type CheckInType = z.infer<typeof CheckInTypeSchema>;
-
-export const EntryProjectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  color: ProjectColorSchema,
-});
-export type EntryProject = z.infer<typeof EntryProjectSchema>;
-
-export const EntryTagSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-export type EntryTag = z.infer<typeof EntryTagSchema>;
 
 export const EntryResponseSchema = z.object({
   id: z.string(),
@@ -27,16 +13,17 @@ export const EntryResponseSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 
-  // Note fields (null for check-ins)
+  // Note fields: full note body when type is note; optional rich “note” on check-ins when set
   title: z.string().nullable(),
   contentJson: z.unknown().nullable(),
   plainText: z.string().nullable(),
   wordCount: z.number().int().nullable(),
   noteFolderId: z.string().nullable(),
   noteFolderPath: z.string().nullable(),
+  /** Opaque ID in settings-service (no FK in diary DB). */
   projectId: z.string().nullable(),
-  project: EntryProjectSchema.nullable(),
-  tags: z.array(EntryTagSchema),
+  /** Tag IDs in settings-service (names resolved via /settings/tags in the client). */
+  tagIds: z.array(z.string()),
 
   // Check-in fields (null / empty arrays for notes)
   mood: z.number().int().min(1).max(10).nullable(),

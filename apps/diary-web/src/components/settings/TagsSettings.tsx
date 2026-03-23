@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Button, ButtonTransparent, Heading, Input, Spinner, Text } from "@madecki/ui";
+import { createTag, deleteTag, updateTag } from "@/lib/settings-api";
 import type { TagResponse } from "@diary/shared";
-import { createTag, updateTag, deleteTag } from "@/lib/api";
+import { Button, ButtonTransparent, Heading, Input, Spinner, Text } from "@madecki/ui";
+import { useState } from "react";
 
 // ── Tag Chip ──────────────────────────────────────────────────────────
 
@@ -64,10 +64,19 @@ function TagChip({
         <Button variant="success" size="sm" type="button" disabled={isSaving} onClick={handleSave}>
           {isSaving ? "…" : "Save"}
         </Button>
-        <ButtonTransparent variant="neutral" type="button" disabled={isSaving} onClick={onCancelEdit}>
+        <ButtonTransparent
+          variant="neutral"
+          type="button"
+          disabled={isSaving}
+          onClick={onCancelEdit}
+        >
           Cancel
         </ButtonTransparent>
-        {error && <Text size="sm" color="danger">{error}</Text>}
+        {error && (
+          <Text size="sm" color="danger">
+            {error}
+          </Text>
+        )}
       </div>
     );
   }
@@ -156,7 +165,9 @@ export function TagsSettings({ tags, isLoading, onRefresh }: TagsSettingsProps) 
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <Heading level={3} size="md" weight="semibold">Tags</Heading>
+          <Heading level={3} size="md" weight="semibold">
+            Tags
+          </Heading>
           <Text size="sm" color="muted">
             Add tags to notes for quick categorisation.
           </Text>
@@ -192,7 +203,13 @@ export function TagsSettings({ tags, isLoading, onRefresh }: TagsSettingsProps) 
                 defaultValue={addName}
               />
             </div>
-            <Button variant="success" size="md" type="button" disabled={isAdding} onClick={handleAdd}>
+            <Button
+              variant="success"
+              size="md"
+              type="button"
+              disabled={isAdding}
+              onClick={handleAdd}
+            >
               {isAdding ? "Adding…" : "Add"}
             </Button>
             <ButtonTransparent
@@ -208,17 +225,25 @@ export function TagsSettings({ tags, isLoading, onRefresh }: TagsSettingsProps) 
               Cancel
             </ButtonTransparent>
           </div>
-          {addError && <Text size="sm" color="danger">{addError}</Text>}
+          {addError && (
+            <Text size="sm" color="danger">
+              {addError}
+            </Text>
+          )}
         </div>
       )}
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-3">
           <Spinner size="sm" />
-          <Text size="sm" color="muted">Loading…</Text>
+          <Text size="sm" color="muted">
+            Loading…
+          </Text>
         </div>
       ) : tags.length === 0 && !showAdd ? (
-        <Text size="sm" color="muted">No tags yet. Add your first one.</Text>
+        <Text size="sm" color="muted">
+          No tags yet. Add your first one.
+        </Text>
       ) : (
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (

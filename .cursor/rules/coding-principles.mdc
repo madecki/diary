@@ -41,7 +41,7 @@ This is a personal diary — data loss is unacceptable. Follow these rules:
 
 The `entries` table stores two types in a single flat model:
 - `note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`, optional `projectId` (FK to `projects`), and M:M `tags` relation.
-- `checkin` — has `checkInType` (morning/evening), `mood` (1-10), `emotions[]`, `triggers[]`, and type-specific fields (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation` for morning; `highlightsOfTheDay`, `whatDidILearnToday` for evening)
+- `checkin` — has `checkInType` (morning/evening/basic), `mood` (1-10), `emotions[]`, `triggers[]`, optional rich **note** (`contentJson` / `plainText` / `wordCount`, same BlockNote shape as notes) on morning/evening, and type-specific fields for morning (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation`) and evening (`highlightsOfTheDay`, `whatDidILearnToday`). **Basic** has mood, emotions, triggers, and a **required** note (cannot be cleared via API once basic).
 
 Fields not relevant to a type are `null` or `[]`. Project and tags are only meaningful for notes — never shown or editable on check-ins.
 
@@ -57,7 +57,7 @@ Notes can be organized into a hierarchical folder tree (`note_folders` table, se
 
 # Root Page UI Navigation
 
-The root page (`/`) shows three tabs: **Notes** (default), **Check-ins**, and **Settings**. URL param `?view=` controls the active tab (`notes` | `checkins` | `settings`).
+The root page (`/`) shows three tabs: **Notes**, **Check-ins** (default when `view` is omitted), and **Settings**. URL param `?view=` selects the tab: `notes` and `settings` are explicit; any other or missing value shows **Check-ins**.
 
 - **Notes tab**: shows a breadcrumb + two inline toolbar buttons ("Add new" → `/entries/new/note` with optional `?folder=` param, and "Create folder" → modal). Below the toolbar: folder cards, then note cards for the current folder level.
 - **Check-ins tab**: shows a single "Add new" → `/entries/new/checkin` button in the top-right corner of the tab area, then the filtered list of check-in entries.

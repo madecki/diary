@@ -1,5 +1,5 @@
-import { test, expect } from "../fixtures";
-import { resetDatabase, getEntryCount } from "../db";
+import { getEntryCount, resetDatabase } from "../db";
+import { expect, test } from "../fixtures";
 
 test.describe("Full User Flow", () => {
   test.beforeEach(async () => {
@@ -8,12 +8,9 @@ test.describe("Full User Flow", () => {
 
   test("complete journaling workflow", async ({ page }) => {
     await page.goto("/");
-    // Default view is notes
-    await expect(page.getByText("0 notes")).toBeVisible();
+    await expect(page.getByText("0 check-ins")).toBeVisible();
 
     // ── Create morning check-in ────────────────────────────────────
-    // Navigate to check-ins tab and use the inline "Add new" button
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
@@ -31,20 +28,14 @@ test.describe("Full User Flow", () => {
     await page.locator("input[placeholder='First thing…']").first().fill("Great night sleep");
 
     // Fill make-day-great
-    await page
-      .locator("input[placeholder='First thing…']")
-      .nth(1)
-      .fill("Finish the feature");
+    await page.locator("input[placeholder='First thing…']").nth(1).fill("Finish the feature");
 
     // Fill affirmation
     await page.getByPlaceholder("I am…").fill("I am focused and ready");
 
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Check-in saved!")).toBeVisible({ timeout: 10_000 });
     await page.waitForURL("/", { timeout: 10_000 });
 
-    // After redirect, default view is notes — switch to check-ins to verify
-    await page.getByRole("button", { name: "Check-ins" }).click();
     await expect(page.getByText("1 check-in")).toBeVisible();
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
 
@@ -63,9 +54,8 @@ test.describe("Full User Flow", () => {
 
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
-    await page.waitForURL("/", { timeout: 10_000 });
+    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
 
-    // Default view is notes after redirect
     await expect(page.getByText("1 note")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
 
@@ -85,9 +75,7 @@ test.describe("Full User Flow", () => {
     );
     await searchInput.fill("focused");
     // Affirmation "I am focused and ready" matches
-    await expect(
-      page.locator("span").filter({ hasText: "🌅 Morning" }),
-    ).toBeVisible();
+    await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
 
     await searchInput.clear();
     await expect(page.getByText("1 check-in")).toBeVisible();

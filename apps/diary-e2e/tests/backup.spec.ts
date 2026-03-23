@@ -1,9 +1,9 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { API_URL } from "../playwright.config";
+import { type APIRequestContext, expect, test } from "@playwright/test";
 import { resetDatabase } from "../db";
 import { E2E_BACKUP_DIR } from "../global-setup";
+import { API_URL } from "../playwright.config";
 
 const TODAY_DATETIME = new Date().toISOString().slice(0, 16);
 const todayParts = TODAY_DATETIME.slice(0, 10).split("-");

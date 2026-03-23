@@ -12,15 +12,11 @@
  */
 import { type NextRequest, NextResponse } from "next/server";
 
-
 const E2E_API_TARGET = process.env.E2E_API_TARGET;
 const E2E_SERVICE_TOKEN = process.env.E2E_SERVICE_TOKEN;
 const E2E_USER_ID = process.env.E2E_USER_ID;
 
-async function proxy(
-  req: NextRequest,
-  params: Promise<{ path: string[] }>,
-): Promise<NextResponse> {
+async function proxy(req: NextRequest, params: Promise<{ path: string[] }>): Promise<NextResponse> {
   if (!E2E_API_TARGET || !E2E_SERVICE_TOKEN || !E2E_USER_ID) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -35,8 +31,7 @@ async function proxy(
   const contentType = req.headers.get("content-type");
   if (contentType) forwardHeaders["content-type"] = contentType;
 
-  const body =
-    req.method !== "GET" && req.method !== "HEAD" ? await req.arrayBuffer() : undefined;
+  const body = req.method !== "GET" && req.method !== "HEAD" ? await req.arrayBuffer() : undefined;
 
   const upstream = await fetch(targetUrl, {
     method: req.method,

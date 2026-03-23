@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { Button, ButtonTransparent, Heading, Text, Stack } from "@madecki/ui";
 import type { BrowseFolderItem } from "@diary/shared";
+import { Button, ButtonTransparent, Heading, Stack, Text } from "@madecki/ui";
+import { useEffect } from "react";
 
 interface DeleteFolderModalProps {
   folder: BrowseFolderItem | null;
@@ -81,12 +81,7 @@ export function DeleteFolderModal({
             >
               Cancel
             </ButtonTransparent>
-            <Button
-              variant="danger"
-              onClick={onConfirm}
-              disabled={isDeleting}
-              type="button"
-            >
+            <Button variant="danger" onClick={onConfirm} disabled={isDeleting} type="button">
               {isDeleting ? "Removing…" : "Remove"}
             </Button>
           </Stack>

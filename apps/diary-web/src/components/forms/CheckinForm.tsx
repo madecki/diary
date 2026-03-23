@@ -1,36 +1,43 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { flushSync } from "react-dom";
-import { useRouter } from "next/navigation";
-import {
-  Container,
-  Stack,
-  Heading,
-  Text,
-  Button,
-  ButtonTransparent,
-  GradientButton,
-  Hr,
-  Input,
-  SpinnerOverlay,
-} from "@madecki/ui";
-import type { EntryResponse, EmotionResponse, TriggerResponse } from "@diary/shared";
+import { EditorWrapper } from "@/components/editor/EditorWrapper";
 import {
   createCheckin,
-  updateEntry,
+  createEmotion,
+  createTrigger,
   deleteEntry,
   fetchEmotions,
   fetchTriggers,
-  createEmotion,
-  createTrigger,
+  updateEntry,
 } from "@/lib/api";
-import { todayLocalDateTime } from "@/lib/utils";
+import { extractBlocks, todayLocalDateTime } from "@/lib/utils";
+import type { Block } from "@blocknote/core";
+import type {
+  CreateCheckinInput,
+  EmotionResponse,
+  EntryResponse,
+  TriggerResponse,
+  UpdateCheckinInput,
+} from "@diary/shared";
+import {
+  Button,
+  ButtonTransparent,
+  Container,
+  GradientButton,
+  Heading,
+  Hr,
+  Input,
+  Spinner,
+  Stack,
+  Text,
+} from "@madecki/ui";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { AddEmotionTriggerForm } from "./AddEmotionTriggerForm";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { MoodPicker } from "./MoodPicker";
 import { OptionTagPicker } from "./OptionTagPicker";
-import { SuccessToast } from "./SuccessToast";
-import { DeleteConfirmModal } from "./DeleteConfirmModal";
-import { AddEmotionTriggerForm } from "./AddEmotionTriggerForm";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -52,11 +59,7 @@ interface AddEmotionTriggerModalProps {
   onAdd: (label: string, type: "difficult" | "neutral" | "pleasant") => Promise<void>;
 }
 
-function AddEmotionTriggerModal({
-  kind,
-  onClose,
-  onAdd,
-}: AddEmotionTriggerModalProps) {
+function AddEmotionTriggerModal({ kind, onClose, onAdd }: AddEmotionTriggerModalProps) {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -71,10 +74,7 @@ function AddEmotionTriggerModal({
       role="dialog"
       aria-modal="true"
     >
-      <div
-        className="absolute inset-0 bg-primary/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-sm bg-darkgray border border-gray/50 p-7">
         <AddEmotionTriggerForm kind={kind} onAdd={onAdd} onCancel={onClose} />
       </div>
@@ -97,8 +97,7 @@ function ThreeInputs({ label, values, onChange, placeholders, error, disabled }:
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-icongray">
-        {label}{" "}
-        <span className="text-xs text-lightgray">(min. 1 required)</span>
+        {label} <span className="text-xs text-lightgray">(min. 1 required)</span>
       </label>
       <div className="flex flex-col gap-2">
         {([0, 1, 2] as const).map((i) => (
@@ -146,7 +145,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
   const [optionsLoading, setOptionsLoading] = useState(true);
 
   // Check-in type
-  const [checkInType, setCheckInType] = useState<"morning" | "evening">(
+  const [checkInType, setCheckInType] = useState<"morning" | "evening" | "basic">(
     entry?.checkInType ?? defaultCheckInType(),
   );
   const [sectionKey, setSectionKey] = useState(0);
@@ -158,27 +157,39 @@ export function CheckinForm({ entry }: CheckinFormProps) {
   const [whatWouldMakeDayGreat, setWhatWouldMakeDayGreat] = useState<Triple>(
     toTriple(entry?.whatWouldMakeDayGreat),
   );
-  const [dailyAffirmation, setDailyAffirmation] = useState(
-    entry?.dailyAffirmation ?? "",
-  );
+  const [dailyAffirmation, setDailyAffirmation] = useState(entry?.dailyAffirmation ?? "");
 
   // Evening fields
   const [highlightsOfTheDay, setHighlightsOfTheDay] = useState<Triple>(
     toTriple(entry?.highlightsOfTheDay),
   );
-  const [whatDidILearnToday, setWhatDidILearnToday] = useState(
-    entry?.whatDidILearnToday ?? "",
-  );
+  const [whatDidILearnToday, setWhatDidILearnToday] = useState(entry?.whatDidILearnToday ?? "");
 
-  const [dateTime, setDateTime] = useState<string>(
-    entry?.localDateTime ?? todayLocalDateTime(),
-  );
+  const [dateTime, setDateTime] = useState<string>(entry?.localDateTime ?? todayLocalDateTime());
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [addModal, setAddModal] = useState<"emotion" | "trigger" | null>(null);
+
+  const noteEditorBlocks = useRef<Block[]>([]);
+  const noteEditorPlainText = useRef("");
+  const noteEditorWordCount = useRef(0);
+  /** Without this, clearing the editor still falls back to `entry.plainText` on save. */
+  const noteEditorDirty = useRef(false);
+
+  const handleNoteEditorChange = useCallback(
+    (blocks: Block[], plainText: string, wordCount: number) => {
+      noteEditorDirty.current = true;
+      noteEditorBlocks.current = blocks;
+      noteEditorPlainText.current = plainText;
+      noteEditorWordCount.current = wordCount;
+      if (errors["note"] && plainText.trim()) {
+        setErrors((e) => ({ ...e, note: "" }));
+      }
+    },
+    [errors],
+  );
 
   const loadEmotionsAndTriggers = useCallback(async () => {
     setOptionsLoading(true);
@@ -197,7 +208,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
     void loadEmotionsAndTriggers();
   }, [loadEmotionsAndTriggers]);
 
-  function handleTypeChange(newType: "morning" | "evening") {
+  function handleTypeChange(newType: "morning" | "evening" | "basic") {
     if (newType === checkInType) return;
     setCheckInType(newType);
     setSectionKey((k) => k + 1);
@@ -241,6 +252,71 @@ export function CheckinForm({ entry }: CheckinFormProps) {
     setErrors((e) => (e["triggers"] ? { ...e, triggers: "" } : e));
   }
 
+  /** For POST /checkins — never sends a null triple (omit fields instead). */
+  function buildCheckinNotePayloadForCreate():
+    | { contentJson: Record<string, unknown>; plainText: string; wordCount: number }
+    | Record<string, never> {
+    if (!noteEditorDirty.current) {
+      return {};
+    }
+
+    const fromEditorPlain = noteEditorPlainText.current.trim();
+    const blockArray =
+      noteEditorBlocks.current.length > 0
+        ? noteEditorBlocks.current
+        : (extractBlocks(entry?.contentJson) as Block[]);
+
+    if (fromEditorPlain.length > 0) {
+      const wc =
+        noteEditorWordCount.current > 0
+          ? noteEditorWordCount.current
+          : fromEditorPlain.split(/\s+/).filter(Boolean).length || entry?.wordCount || 0;
+      return {
+        contentJson: { blocks: blockArray as unknown[] } as Record<string, unknown>,
+        plainText: fromEditorPlain,
+        wordCount: wc,
+      };
+    }
+
+    return {};
+  }
+
+  /** For PATCH — may send null triple to clear an existing note. */
+  function buildCheckinNotePayloadForUpdate():
+    | { contentJson: Record<string, unknown>; plainText: string; wordCount: number }
+    | { contentJson: null; plainText: null; wordCount: null }
+    | Record<string, never> {
+    const hasStoredNote = !!entry?.plainText?.trim();
+
+    if (!noteEditorDirty.current) {
+      return {};
+    }
+
+    const fromEditorPlain = noteEditorPlainText.current.trim();
+    const blockArray =
+      noteEditorBlocks.current.length > 0
+        ? noteEditorBlocks.current
+        : (extractBlocks(entry?.contentJson) as Block[]);
+
+    if (fromEditorPlain.length > 0) {
+      const wc =
+        noteEditorWordCount.current > 0
+          ? noteEditorWordCount.current
+          : fromEditorPlain.split(/\s+/).filter(Boolean).length || entry?.wordCount || 0;
+      return {
+        contentJson: { blocks: blockArray as unknown[] } as Record<string, unknown>,
+        plainText: fromEditorPlain,
+        wordCount: wc,
+      };
+    }
+
+    if (isEdit && hasStoredNote && entry?.checkInType !== "basic") {
+      return { contentJson: null, plainText: null, wordCount: null };
+    }
+
+    return {};
+  }
+
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
     const atLeastOne = (arr: string[]) => arr.some((s) => s.trim().length > 0);
@@ -254,13 +330,18 @@ export function CheckinForm({ entry }: CheckinFormProps) {
         newErrors["whatImGratefulFor"] = "Enter at least one item";
       if (!atLeastOne(whatWouldMakeDayGreat))
         newErrors["whatWouldMakeDayGreat"] = "Enter at least one item";
-      if (!dailyAffirmation.trim())
-        newErrors["dailyAffirmation"] = "Daily affirmation is required";
-    } else {
+      if (!dailyAffirmation.trim()) newErrors["dailyAffirmation"] = "Daily affirmation is required";
+    } else if (checkInType === "evening") {
       if (!atLeastOne(highlightsOfTheDay))
         newErrors["highlightsOfTheDay"] = "Enter at least one item";
-      if (!whatDidILearnToday.trim())
-        newErrors["whatDidILearnToday"] = "This field is required";
+      if (!whatDidILearnToday.trim()) newErrors["whatDidILearnToday"] = "This field is required";
+    } else if (checkInType === "basic") {
+      const noteText = noteEditorDirty.current
+        ? noteEditorPlainText.current.trim()
+        : (entry?.plainText ?? "").trim();
+      if (!noteText) {
+        newErrors["note"] = "Note is required for basic check-ins";
+      }
     }
 
     setErrors(newErrors);
@@ -272,61 +353,81 @@ export function CheckinForm({ entry }: CheckinFormProps) {
     flushSync(() => setIsSaving(true));
 
     try {
-      const common = {
-        mood: mood!,
-        emotions,
-        triggers,
-      };
-
       if (isEdit && entry) {
+        const noteExtra = buildCheckinNotePayloadForUpdate();
+        const common = {
+          mood: mood!,
+          emotions,
+          triggers,
+          ...noteExtra,
+        };
         if (checkInType === "morning") {
-          await updateEntry(entry.id, {
+          const body: UpdateCheckinInput = {
             ...common,
             checkInType: "morning",
-            whatImGratefulFor,
-            whatWouldMakeDayGreat,
+            whatImGratefulFor: [...whatImGratefulFor],
+            whatWouldMakeDayGreat: [...whatWouldMakeDayGreat],
             dailyAffirmation: dailyAffirmation.trim(),
             localDateTime: dateTime,
-          });
-        } else {
-          await updateEntry(entry.id, {
+          };
+          await updateEntry(entry.id, body);
+        } else if (checkInType === "evening") {
+          const body: UpdateCheckinInput = {
             ...common,
             checkInType: "evening",
-            highlightsOfTheDay,
+            highlightsOfTheDay: [...highlightsOfTheDay],
             whatDidILearnToday: whatDidILearnToday.trim(),
             localDateTime: dateTime,
-          });
+          };
+          await updateEntry(entry.id, body);
+        } else {
+          const body: UpdateCheckinInput = {
+            ...common,
+            checkInType: "basic",
+            localDateTime: dateTime,
+          };
+          await updateEntry(entry.id, body);
         }
       } else {
+        const noteExtra = buildCheckinNotePayloadForCreate();
+        const common = {
+          mood: mood!,
+          emotions,
+          triggers,
+          ...noteExtra,
+        };
         if (checkInType === "morning") {
           await createCheckin({
             ...common,
             checkInType: "morning",
-            whatImGratefulFor,
-            whatWouldMakeDayGreat,
+            whatImGratefulFor: [...whatImGratefulFor],
+            whatWouldMakeDayGreat: [...whatWouldMakeDayGreat],
             dailyAffirmation: dailyAffirmation.trim(),
+            localDateTime: dateTime,
+          });
+        } else if (checkInType === "evening") {
+          await createCheckin({
+            ...common,
+            checkInType: "evening",
+            highlightsOfTheDay: [...highlightsOfTheDay],
+            whatDidILearnToday: whatDidILearnToday.trim(),
             localDateTime: dateTime,
           });
         } else {
           await createCheckin({
             ...common,
-            checkInType: "evening",
-            highlightsOfTheDay,
-            whatDidILearnToday: whatDidILearnToday.trim(),
+            checkInType: "basic",
             localDateTime: dateTime,
-          });
+          } as CreateCheckinInput);
         }
       }
 
-      setShowSuccess(true);
-      setTimeout(() => router.push("/"), 1200);
+      router.push("/");
     } catch (err) {
-      setErrors({
-        submit:
-          err instanceof Error ? err.message : "Failed to save. Try again.",
-      });
-    } finally {
       setIsSaving(false);
+      setErrors({
+        submit: err instanceof Error ? err.message : "Failed to save. Try again.",
+      });
     }
   }
 
@@ -416,9 +517,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
 
             {/* Morning / Evening toggle */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-icongray">
-                Check-in type
-              </label>
+              <label className="text-sm font-medium text-icongray">Check-in type</label>
               <div className="flex gap-3">
                 <Button
                   id="type-morning"
@@ -440,103 +539,126 @@ export function CheckinForm({ entry }: CheckinFormProps) {
                   disabled={isSaving}
                   onClick={(_maybeId?: string) => handleTypeChange("evening")}
                 />
+                <Button
+                  id="type-basic"
+                  variant="info"
+                  size="sm"
+                  isActive={checkInType === "basic"}
+                  label="Basic"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={(_maybeId?: string) => handleTypeChange("basic")}
+                />
               </div>
             </div>
 
-            <Hr />
+            {(checkInType === "morning" || checkInType === "evening") && (
+              <>
+                <Hr />
 
-            {/* Morning fields */}
-            {checkInType === "morning" && (
-              <div key={`morning-${sectionKey}`} className="flex flex-col gap-6">
-                <ThreeInputs
-                  label="What are you grateful for?"
-                  values={whatImGratefulFor}
-                  onChange={(v) => {
-                    setWhatImGratefulFor(v);
-                    if (errors["whatImGratefulFor"])
-                      setErrors((e) => ({ ...e, whatImGratefulFor: "" }));
-                  }}
-                  placeholders={["First thing…", "Second thing…", "Third thing…"]}
-                  error={errors["whatImGratefulFor"]}
-                  disabled={isSaving}
-                />
+                {/* Morning fields */}
+                {checkInType === "morning" && (
+                  <div key={`morning-${sectionKey}`} className="flex flex-col gap-6">
+                    <ThreeInputs
+                      label="What are you grateful for?"
+                      values={whatImGratefulFor}
+                      onChange={(v) => {
+                        setWhatImGratefulFor(v);
+                        if (errors["whatImGratefulFor"])
+                          setErrors((e) => ({ ...e, whatImGratefulFor: "" }));
+                      }}
+                      placeholders={["First thing…", "Second thing…", "Third thing…"]}
+                      error={errors["whatImGratefulFor"]}
+                      disabled={isSaving}
+                    />
 
-                <ThreeInputs
-                  label="What would make today great?"
-                  values={whatWouldMakeDayGreat}
-                  onChange={(v) => {
-                    setWhatWouldMakeDayGreat(v);
-                    if (errors["whatWouldMakeDayGreat"])
-                      setErrors((e) => ({ ...e, whatWouldMakeDayGreat: "" }));
-                  }}
-                  placeholders={["First thing…", "Second thing…", "Third thing…"]}
-                  error={errors["whatWouldMakeDayGreat"]}
-                  disabled={isSaving}
-                />
+                    <ThreeInputs
+                      label="What would make today great?"
+                      values={whatWouldMakeDayGreat}
+                      onChange={(v) => {
+                        setWhatWouldMakeDayGreat(v);
+                        if (errors["whatWouldMakeDayGreat"])
+                          setErrors((e) => ({ ...e, whatWouldMakeDayGreat: "" }));
+                      }}
+                      placeholders={["First thing…", "Second thing…", "Third thing…"]}
+                      error={errors["whatWouldMakeDayGreat"]}
+                      disabled={isSaving}
+                    />
 
-                <div className="flex flex-col gap-1">
-                  <Input
-                    name="dailyAffirmation"
-                    label="Daily affirmation"
-                    placeholder="I am…"
-                    defaultValue={dailyAffirmation}
-                    disabled={isSaving}
-                    onChange={(v) => {
-                      setDailyAffirmation(v);
-                      if (errors["dailyAffirmation"])
-                        setErrors((e) => ({ ...e, dailyAffirmation: "" }));
-                    }}
-                  />
-                  {errors["dailyAffirmation"] && (
-                    <Text size="sm" color="danger">
-                      {errors["dailyAffirmation"]}
-                    </Text>
-                  )}
-                </div>
-              </div>
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        name="dailyAffirmation"
+                        label="Daily affirmation"
+                        placeholder="I am…"
+                        defaultValue={dailyAffirmation}
+                        disabled={isSaving}
+                        onChange={(v) => {
+                          setDailyAffirmation(v);
+                          if (errors["dailyAffirmation"])
+                            setErrors((e) => ({ ...e, dailyAffirmation: "" }));
+                        }}
+                      />
+                      {errors["dailyAffirmation"] && (
+                        <Text size="sm" color="danger">
+                          {errors["dailyAffirmation"]}
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Evening fields */}
+                {checkInType === "evening" && (
+                  <div key={`evening-${sectionKey}`} className="flex flex-col gap-6">
+                    <ThreeInputs
+                      label="Highlights of the day"
+                      values={highlightsOfTheDay}
+                      onChange={(v) => {
+                        setHighlightsOfTheDay(v);
+                        if (errors["highlightsOfTheDay"])
+                          setErrors((e) => ({ ...e, highlightsOfTheDay: "" }));
+                      }}
+                      placeholders={["First highlight…", "Second highlight…", "Third highlight…"]}
+                      error={errors["highlightsOfTheDay"]}
+                      disabled={isSaving}
+                    />
+
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        name="whatDidILearnToday"
+                        label="What did I learn today?"
+                        placeholder="Today I learned…"
+                        defaultValue={whatDidILearnToday}
+                        disabled={isSaving}
+                        onChange={(v) => {
+                          setWhatDidILearnToday(v);
+                          if (errors["whatDidILearnToday"])
+                            setErrors((e) => ({ ...e, whatDidILearnToday: "" }));
+                        }}
+                      />
+                      {errors["whatDidILearnToday"] && (
+                        <Text size="sm" color="danger">
+                          {errors["whatDidILearnToday"]}
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <Hr />
+              </>
             )}
 
-            {/* Evening fields */}
-            {checkInType === "evening" && (
-              <div key={`evening-${sectionKey}`} className="flex flex-col gap-6">
-                <ThreeInputs
-                  label="Highlights of the day"
-                  values={highlightsOfTheDay}
-                  onChange={(v) => {
-                    setHighlightsOfTheDay(v);
-                    if (errors["highlightsOfTheDay"])
-                      setErrors((e) => ({ ...e, highlightsOfTheDay: "" }));
-                  }}
-                  placeholders={[
-                    "First highlight…",
-                    "Second highlight…",
-                    "Third highlight…",
-                  ]}
-                  error={errors["highlightsOfTheDay"]}
-                  disabled={isSaving}
-                />
+            {checkInType === "basic" && <Hr />}
 
-                <div className="flex flex-col gap-1">
-                  <Input
-                    name="whatDidILearnToday"
-                    label="What did I learn today?"
-                    placeholder="Today I learned…"
-                    defaultValue={whatDidILearnToday}
-                    disabled={isSaving}
-                    onChange={(v) => {
-                      setWhatDidILearnToday(v);
-                      if (errors["whatDidILearnToday"])
-                        setErrors((e) => ({ ...e, whatDidILearnToday: "" }));
-                    }}
-                  />
-                  {errors["whatDidILearnToday"] && (
-                    <Text size="sm" color="danger">
-                      {errors["whatDidILearnToday"]}
-                    </Text>
-                  )}
-                </div>
-              </div>
-            )}
+            <EditorWrapper
+              key={`checkin-note-${entry?.id ?? "new"}`}
+              label={checkInType === "basic" ? "Note" : "Note (optional)"}
+              initialContent={entry?.contentJson ? extractBlocks(entry.contentJson) : undefined}
+              onChange={handleNoteEditorChange}
+              editable={!isSaving}
+              error={errors["note"]}
+            />
 
             {/* Submit error */}
             {errors["submit"] && (
@@ -570,11 +692,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
                 >
                   Cancel
                 </Button>
-                <GradientButton
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  type="button"
-                >
+                <GradientButton onClick={handleSave} disabled={isSaving} type="button">
                   {isSaving ? "Saving…" : isEdit ? "Save changes" : "Save"}
                 </GradientButton>
               </Stack>
@@ -583,13 +701,25 @@ export function CheckinForm({ entry }: CheckinFormProps) {
         </div>
       </Stack>
 
-      <SpinnerOverlay isVisible={isSaving} />
-
-      {showSuccess && (
-        <SuccessToast
-          message={isEdit ? "Check-in updated!" : "Check-in saved!"}
-          onDismiss={() => setShowSuccess(false)}
-        />
+      {isSaving && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/85 backdrop-blur-sm px-6"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="Loading"
+        >
+          <Stack direction="vertical" gap="6" align="center" className="max-w-md text-center">
+            <Spinner size="lg" />
+            <Heading level={2} size="lg" weight="semibold">
+              Well done for showing up today.
+            </Heading>
+            <Text color="muted" size="md" className="leading-relaxed">
+              Taking a moment to notice how you feel matters. We&apos;re saving your check-in now —
+              breathe slowly; you&apos;ll be back to your diary in a second.
+            </Text>
+          </Stack>
+        </div>
       )}
 
       {isEdit && entry && (

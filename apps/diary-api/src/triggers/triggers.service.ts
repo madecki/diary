@@ -1,6 +1,6 @@
-import { Injectable, Inject, NotFoundException, ConflictException } from "@nestjs/common";
+import { type CreateTriggerInput, DEFAULT_TRIGGERS, type UpdateTriggerInput } from "@diary/shared";
+import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ulid } from "ulidx";
-import { DEFAULT_TRIGGERS, type CreateTriggerInput, type UpdateTriggerInput } from "@diary/shared";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -23,7 +23,10 @@ export class TriggersService {
       where: { ownerId: actorUserId },
       orderBy: { label: "asc" },
     });
-    const usageCounts = await this.getUsageCounts(triggers.map((t) => t.label), actorUserId);
+    const usageCounts = await this.getUsageCounts(
+      triggers.map((t) => t.label),
+      actorUserId,
+    );
     return triggers.map((t) => ({ ...t, usageCount: usageCounts[t.label] ?? 0 }));
   }
 
@@ -85,7 +88,10 @@ export class TriggersService {
     await this.prisma.trigger.delete({ where: { id } });
   }
 
-  private async getUsageCounts(labels: string[], actorUserId: string): Promise<Record<string, number>> {
+  private async getUsageCounts(
+    labels: string[],
+    actorUserId: string,
+  ): Promise<Record<string, number>> {
     if (labels.length === 0) return {};
     const result: Record<string, number> = {};
     await Promise.all(
