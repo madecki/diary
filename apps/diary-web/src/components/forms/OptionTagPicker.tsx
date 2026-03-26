@@ -1,16 +1,10 @@
 "use client";
 
+import { REF_TYPE_TAG_VARIANT } from "@/lib/ref-type-tag-variant";
 import type { EmotionResponse, TriggerResponse } from "@diary/shared";
 import { Button, Spinner, Text } from "@madecki/ui";
-import type { ColorVariants } from "@madecki/ui";
 
 type Option = EmotionResponse | TriggerResponse;
-
-const TYPE_VARIANT: Record<string, Exclude<ColorVariants, "primary">> = {
-  difficult: "danger",
-  neutral: "warning",
-  pleasant: "success",
-};
 
 function getMoodTypeOrder(mood: number | null): string[] {
   if (mood === null) return ["pleasant", "neutral", "difficult"];
@@ -87,7 +81,7 @@ export function OptionTagPicker({
         <div className="flex flex-wrap gap-2">
           {sortedOptions.map((option) => {
             const isSelected = value.includes(option.label);
-            const variant = TYPE_VARIANT[option.type] ?? "info";
+            const variant = REF_TYPE_TAG_VARIANT[option.type];
             const isAtMax = value.length >= maxTags && !isSelected;
             return (
               <Button

@@ -22,6 +22,7 @@ import {
   Input,
   Spinner,
   Stack,
+  Tag,
   Text,
 } from "@madecki/ui";
 import { useEffect, useState } from "react";
@@ -280,17 +281,13 @@ function EmotionsTriggerSection({
               const variant = TYPE_VARIANT[refType];
               return (
                 <div key={refType} className="flex flex-col gap-2">
-                  <div
-                    className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-sm w-fit ${
-                      variant === "danger"
-                        ? "text-danger bg-danger/10"
-                        : variant === "warning"
-                          ? "text-warning bg-warning/10"
-                          : "text-success bg-success/10"
-                    }`}
-                  >
-                    {refType.charAt(0).toUpperCase() + refType.slice(1)}
-                  </div>
+                  <Tag
+                    variant={variant}
+                    size="xs"
+                    filled
+                    label={refType.charAt(0).toUpperCase() + refType.slice(1)}
+                    className="w-fit"
+                  />
                   <div className="flex flex-wrap gap-2">
                     {group.map((item) => (
                       <ItemRow

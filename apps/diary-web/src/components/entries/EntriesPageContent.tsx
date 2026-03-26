@@ -4,10 +4,12 @@ import {
   browseNotes,
   createNoteFolder,
   deleteNoteFolder,
+  fetchEmotions,
   fetchEntries,
+  fetchTriggers,
   renameNoteFolder,
 } from "@/lib/api";
-import type { BrowseFolderItem, EntryResponse, ListEntriesResponse } from "@diary/shared";
+import type { BrowseFolderItem, EntryResponse, ListEntriesResponse, RefType } from "@diary/shared";
 import { Button, Container, Heading, Input, Spinner, Stack, Tabs, Text } from "@madecki/ui";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,6 +45,13 @@ export function EntriesPageContent({ initialEntries, initialCursor }: EntriesPag
   const [folderToDelete, setFolderToDelete] = useState<BrowseFolderItem | null>(null);
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<BrowseFolderItem | null>(null);
+
+  const [emotionTypeByLabel, setEmotionTypeByLabel] = useState<Partial<Record<string, RefType>>>(
+    {},
+  );
+  const [triggerTypeByLabel, setTriggerTypeByLabel] = useState<Partial<Record<string, RefType>>>(
+    {},
+  );
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -84,6 +93,20 @@ export function EntriesPageContent({ initialEntries, initialCursor }: EntriesPag
     if (view !== "notes") return;
     void loadNotes(folderFromUrl);
   }, [view, folderFromUrl, loadNotes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([fetchEmotions(), fetchTriggers()])
+      .then(([emotions, triggers]) => {
+        if (cancelled) return;
+        setEmotionTypeByLabel(Object.fromEntries(emotions.map((e) => [e.label, e.type])));
+        setTriggerTypeByLabel(Object.fromEntries(triggers.map((t) => [t.label, t.type])));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isSettings = view === "settings";
 
@@ -284,7 +307,12 @@ export function EntriesPageContent({ initialEntries, initialCursor }: EntriesPag
           ) : (
             <Stack direction="vertical" gap="4">
               {(filtered ?? []).map((entry) => (
-                <EntryCard key={entry.id} entry={entry} />
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  emotionTypeByLabel={emotionTypeByLabel}
+                  triggerTypeByLabel={triggerTypeByLabel}
+                />
               ))}
             </Stack>
           ))}

@@ -1,3 +1,4 @@
+import { REF_TYPE_TAG_VARIANT } from "@/lib/ref-type-tag-variant";
 import {
   firstSentenceTitle,
   formatDateTime,
@@ -6,12 +7,15 @@ import {
   splitFirstSentence,
   truncate,
 } from "@/lib/utils";
-import type { EntryResponse } from "@diary/shared";
-import { Heading, Stack, Text } from "@madecki/ui";
+import type { EntryResponse, RefType } from "@diary/shared";
+import { Heading, Stack, Tag, Text } from "@madecki/ui";
 import Link from "next/link";
 
 interface EntryCardProps {
   entry: EntryResponse;
+  /** Current catalog label → type; used to color emotion chips like the check-in form. */
+  emotionTypeByLabel?: Partial<Record<string, RefType>>;
+  triggerTypeByLabel?: Partial<Record<string, RefType>>;
 }
 
 function checkinTitle(entry: EntryResponse): string | null {
@@ -40,7 +44,19 @@ function checkinPreview(entry: EntryResponse): string | null {
   return tail ? truncate(tail, 150) : null;
 }
 
-export function EntryCard({ entry }: EntryCardProps) {
+function moodTagVariant(mood: number): "success" | "danger" | "warning" | "info" {
+  const c = moodColor(mood);
+  if (c === "success") return "success";
+  if (c === "danger") return "danger";
+  if (c === "warning") return "warning";
+  return "info";
+}
+
+export function EntryCard({
+  entry,
+  emotionTypeByLabel,
+  triggerTypeByLabel,
+}: EntryCardProps) {
   const isCheckin = entry.type === "checkin";
   const dateTime = formatDateTime(entry.localDateTime);
 
@@ -56,45 +72,32 @@ export function EntryCard({ entry }: EntryCardProps) {
             <Stack direction="vertical" gap="2">
               {/* Type + mood + check-in variant badges */}
               <div className="flex items-center gap-3 flex-wrap">
-                <span
-                  className={`inline-flex items-center px-2 py-px rounded text-xs font-medium ${
-                    isCheckin ? "bg-info/20 text-info" : "bg-blue/20 text-blue"
-                  }`}
-                >
-                  {isCheckin ? "Check-in" : "Note"}
-                </span>
-
                 {!isCheckin && entry.noteFolderPath && (
-                  <span className="inline-flex items-center px-2 py-px rounded text-xs font-medium bg-gray/40 text-icongray">
-                    {entry.noteFolderPath}
-                  </span>
+                  <Tag variant="primary" size="xs" muted label={entry.noteFolderPath} />
                 )}
 
                 {isCheckin && entry.mood !== null && entry.mood !== undefined && (
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-px rounded text-xs font-medium ${
-                      moodColor(entry.mood) === "success"
-                        ? "bg-success/20 text-success"
-                        : moodColor(entry.mood) === "danger"
-                          ? "bg-danger/20 text-danger"
-                          : moodColor(entry.mood) === "warning"
-                            ? "bg-warning/20 text-warning"
-                            : "bg-info/20 text-info"
-                    }`}
-                  >
-                    <span>Mood {entry.mood}/10</span>
-                    <span className="opacity-70">{moodLabel(entry.mood)}</span>
-                  </span>
+                  <Tag variant={moodTagVariant(entry.mood)} size="xs">
+                    <span className="inline-flex items-center gap-1">
+                      <span>Mood {entry.mood}/10</span>
+                      <span className="opacity-70">{moodLabel(entry.mood)}</span>
+                    </span>
+                  </Tag>
                 )}
 
                 {isCheckin && entry.checkInType && (
-                  <span className="inline-flex items-center px-2 py-px rounded text-xs font-medium bg-gray/40 text-icongray">
-                    {entry.checkInType === "morning"
-                      ? "🌅 Morning"
-                      : entry.checkInType === "evening"
-                        ? "🌙 Evening"
-                        : "📝 Basic"}
-                  </span>
+                  <Tag
+                    variant="primary"
+                    size="xs"
+                    muted
+                    label={
+                      entry.checkInType === "morning"
+                        ? "🌅 Morning"
+                        : entry.checkInType === "evening"
+                          ? "🌙 Evening"
+                          : "📝 Basic"
+                    }
+                  />
                 )}
               </div>
 
@@ -123,22 +126,30 @@ export function EntryCard({ entry }: EntryCardProps) {
           {isCheckin &&
             ((entry.emotions?.length ?? 0) > 0 || (entry.triggers?.length ?? 0) > 0) && (
               <div className="flex flex-wrap gap-2">
-                {entry.emotions?.map((emotion) => (
-                  <span
-                    key={emotion}
-                    className="px-2 py-px bg-gray/40 text-icongray rounded text-xs"
-                  >
-                    {emotion}
-                  </span>
-                ))}
-                {entry.triggers?.map((trigger) => (
-                  <span
-                    key={trigger}
-                    className="px-2 py-px bg-gray/40 text-icongray rounded text-xs border border-lightgray/20"
-                  >
-                    {trigger}
-                  </span>
-                ))}
+                {entry.emotions?.map((emotion) => {
+                  const refType = emotionTypeByLabel?.[emotion];
+                  return (
+                    <Tag
+                      key={emotion}
+                      variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "info"}
+                      size="xs"
+                      muted={!refType}
+                      label={emotion}
+                    />
+                  );
+                })}
+                {entry.triggers?.map((trigger) => {
+                  const refType = triggerTypeByLabel?.[trigger];
+                  return (
+                    <Tag
+                      key={trigger}
+                      variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "primary"}
+                      size="xs"
+                      muted={!refType}
+                      label={trigger}
+                    />
+                  );
+                })}
               </div>
             )}
         </Stack>

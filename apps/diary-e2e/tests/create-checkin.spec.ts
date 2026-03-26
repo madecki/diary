@@ -1,5 +1,6 @@
 import { getEntryCount, resetDatabase } from "../db";
 import { expect, test } from "../fixtures";
+import { selectCheckInType } from "./checkin-type-helpers";
 
 test.describe("Create Check-in", () => {
   test.beforeEach(async () => {
@@ -16,7 +17,7 @@ test.describe("Create Check-in", () => {
     await expect(page.getByText("How are you feeling today?")).toBeVisible();
   });
 
-  test("shows mood picker, emotions, triggers, and check-in type toggle", async ({ page }) => {
+  test("shows mood picker, emotions, triggers, and check-in type field", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
     // Mood section
@@ -24,18 +25,14 @@ test.describe("Create Check-in", () => {
     // Emotion/trigger pickers
     await expect(page.getByText("Emotions")).toBeVisible();
     await expect(page.getByText("Triggers")).toBeVisible();
-    // Toggle buttons
-    await expect(page.getByRole("button", { name: "Morning" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Evening" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Basic" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Check-in type" })).toBeVisible();
     await expect(page.getByText("Note (optional)")).toBeVisible();
   });
 
   test("shows validation errors when submitting empty morning form", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    // Ensure morning is selected
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
 
     await page.getByRole("button", { name: "Save" }).click();
 
@@ -49,7 +46,7 @@ test.describe("Create Check-in", () => {
   test("shows validation errors when submitting empty basic form", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    await page.getByRole("button", { name: "Basic" }).click();
+    await selectCheckInType(page, "basic");
     await page.getByRole("button", { name: "Save" }).click();
 
     await expect(page.getByText("Mood is required")).toBeVisible();
@@ -61,7 +58,7 @@ test.describe("Create Check-in", () => {
   test("shows validation errors when submitting empty evening form", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    await page.getByRole("button", { name: "Evening" }).click();
+    await selectCheckInType(page, "evening");
 
     await page.getByRole("button", { name: "Save" }).click();
 
@@ -75,8 +72,7 @@ test.describe("Create Check-in", () => {
   test("creates a morning check-in successfully", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    // Select morning (may already be selected)
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
 
     // Pick mood 7
     await page.getByRole("button", { name: "7", exact: true }).click();
@@ -111,7 +107,7 @@ test.describe("Create Check-in", () => {
   test("creates a basic check-in successfully", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    await page.getByRole("button", { name: "Basic" }).click();
+    await selectCheckInType(page, "basic");
     await page.getByRole("button", { name: "7", exact: true }).click();
     await page.getByRole("button", { name: "happy" }).click();
     await page.getByRole("button", { name: "exercise" }).click();
@@ -132,7 +128,7 @@ test.describe("Create Check-in", () => {
   test("creates an evening check-in successfully", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    await page.getByRole("button", { name: "Evening" }).click();
+    await selectCheckInType(page, "evening");
 
     // Pick mood 6
     await page.getByRole("button", { name: "6", exact: true }).click();
@@ -195,7 +191,7 @@ test.describe("Create Check-in", () => {
     });
 
     await page.goto("/entries/new/checkin");
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
     await page.getByRole("button", { name: "7", exact: true }).click();
     await page.getByRole("button", { name: "happy" }).click();
     await page.getByRole("button", { name: "exercise" }).click();
@@ -215,10 +211,7 @@ test.describe("Create Check-in", () => {
     await expect(page.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "← Back" })).toBeDisabled();
 
-    // Type toggle buttons are disabled
-    await expect(page.getByRole("button", { name: "Morning" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Evening" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Basic" })).toBeDisabled();
+    await expect(page.getByTestId("checkin-type")).toBeDisabled();
 
     resolveRequest();
 
@@ -239,7 +232,7 @@ test.describe("Create Check-in", () => {
     });
 
     await page.goto("/entries/new/checkin");
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
     await page.getByRole("button", { name: "8", exact: true }).click();
     await page.getByRole("button", { name: "happy" }).click();
     await page.getByRole("button", { name: "exercise" }).click();
@@ -261,15 +254,14 @@ test.describe("Create Check-in", () => {
   test("switching type resets form fields", async ({ page }) => {
     await page.goto("/entries/new/checkin");
 
-    // Ensure morning mode is active regardless of time of day
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
 
     // Fill some morning data
     await page.locator("input[placeholder='First thing…']").first().fill("Health");
 
     // Switch to evening and back
-    await page.getByRole("button", { name: "Evening" }).click();
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "evening");
+    await selectCheckInType(page, "morning");
 
     // Fields should be cleared
     const firstInput = page.locator("input[placeholder='First thing…']").first();
@@ -290,7 +282,8 @@ test.describe("Create Check-in", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "New emotion" })).toBeVisible();
     await dialog.getByLabel("Label").fill("e2e-from-checkin");
-    await dialog.getByRole("button", { name: "Pleasant" }).click();
+    await dialog.getByTestId("ref-item-type").click();
+    await dialog.getByRole("option", { name: "Pleasant" }).click();
     await dialog.getByRole("button", { name: "Add" }).click();
 
     // Modal closes; new emotion appears and is auto-selected
@@ -298,8 +291,7 @@ test.describe("Create Check-in", () => {
       timeout: 5000,
     });
 
-    // Complete and save check-in
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
     await page.getByRole("button", { name: "7", exact: true }).click();
     await page.getByRole("button", { name: "exercise" }).click();
     await page.locator("input[placeholder='First thing…']").first().fill("Health");
@@ -324,14 +316,15 @@ test.describe("Create Check-in", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "New trigger" })).toBeVisible();
     await dialog.getByLabel("Label").fill("e2e-trigger-from-checkin");
-    await dialog.getByRole("button", { name: "Neutral" }).click();
+    await dialog.getByTestId("ref-item-type").click();
+    await dialog.getByRole("option", { name: "Neutral" }).click();
     await dialog.getByRole("button", { name: "Add" }).click();
 
     await expect(page.getByRole("button", { name: "e2e-trigger-from-checkin" })).toBeVisible({
       timeout: 5000,
     });
 
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
     await page.getByRole("button", { name: "7", exact: true }).click();
     await page.getByRole("button", { name: "happy" }).click();
     await page.locator("input[placeholder='First thing…']").first().fill("Health");

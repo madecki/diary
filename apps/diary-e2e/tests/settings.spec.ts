@@ -243,8 +243,8 @@ test.describe("Settings UI", () => {
     // Click "Add emotion" button
     await page.getByRole("button", { name: "Add emotion" }).click();
 
-    // Select type "Pleasant" and enter label
-    await page.getByRole("button", { name: "Pleasant" }).click();
+    await page.getByTestId("ref-item-type").click();
+    await page.getByRole("option", { name: "Pleasant" }).click();
     await page.getByLabel("Label").first().fill("zen");
     await page.getByRole("button", { name: "Add" }).first().click();
 

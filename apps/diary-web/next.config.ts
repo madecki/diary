@@ -1,4 +1,9 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const thisDir = path.dirname(fileURLToPath(import.meta.url));
+const turbopackRoot = path.join(thisDir, "../..");
 
 // Diary-web is served through the gateway at /mfe/diary (iframe-only path).
 // The shell is the top-level document for all /app/* routes; diary is embedded
@@ -25,6 +30,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@diary/shared"],
   output: "standalone",
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  turbopack: {
+    root: turbopackRoot,
+  },
   ...(assetPrefix ? { assetPrefix } : {}),
 };
 

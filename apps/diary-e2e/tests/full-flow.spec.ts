@@ -1,5 +1,6 @@
 import { getEntryCount, resetDatabase } from "../db";
 import { expect, test } from "../fixtures";
+import { selectCheckInType } from "./checkin-type-helpers";
 
 test.describe("Full User Flow", () => {
   test.beforeEach(async () => {
@@ -14,8 +15,7 @@ test.describe("Full User Flow", () => {
     await page.getByRole("link", { name: "Add new" }).click();
     await page.waitForURL("/entries/new/checkin");
 
-    // Select morning
-    await page.getByRole("button", { name: "Morning" }).click();
+    await selectCheckInType(page, "morning");
 
     // Pick mood
     await page.getByRole("button", { name: "8", exact: true }).click();
@@ -81,8 +81,7 @@ test.describe("Full User Flow", () => {
     await expect(page.getByText("1 check-in")).toBeVisible();
 
     // ── Open check-in for edit ─────────────────────────────────────
-    const checkinCard = page.locator("span").filter({ hasText: "🌅 Morning" });
-    await checkinCard.locator("..").locator("..").locator("..").click();
+    await page.getByRole("link").filter({ hasText: "🌅 Morning" }).first().click();
 
     await expect(page.getByRole("heading", { name: "Edit Check-in" })).toBeVisible();
 

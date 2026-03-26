@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Text } from "@madecki/ui";
+import { Tag, Text } from "@madecki/ui";
 import { type KeyboardEvent, useRef, useState } from "react";
 
 interface TagInputProps {
@@ -59,18 +59,15 @@ export function TagInput({
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
-          <span
-            key={tag}
-            className="flex items-center gap-1 rounded bg-gray/60 px-2 py-px text-sm text-icongray"
-          >
-            {tag}
+          <span key={tag} className="inline-flex items-center gap-1">
+            <Tag variant="primary" size="sm" muted label={tag} />
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 removeTag(tag);
               }}
-              className="ml-1 text-lightgray hover:text-danger transition-colors leading-none"
+              className="text-lightgray hover:text-danger transition-colors leading-none"
               aria-label={`Remove ${tag}`}
             >
               ×

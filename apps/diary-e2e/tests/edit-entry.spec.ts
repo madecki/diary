@@ -223,10 +223,7 @@ test.describe("Edit Entry", () => {
     await expect(page.getByRole("button", { name: "← Back" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Delete" }).first()).toBeDisabled();
 
-    // Type toggle buttons are disabled
-    await expect(page.getByRole("button", { name: "Morning" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Evening" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Basic" })).toBeDisabled();
+    await expect(page.getByTestId("checkin-type")).toBeDisabled();
 
     resolveRequest();
 

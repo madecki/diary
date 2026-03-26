@@ -1,20 +1,23 @@
 "use client";
 
-import { ButtonTransparent, GradientButton, Heading, Input, Stack, Text } from "@madecki/ui";
+import {
+  ButtonTransparent,
+  GradientButton,
+  Heading,
+  Input,
+  Select,
+  Stack,
+  Text,
+} from "@madecki/ui";
 import { useState } from "react";
 
 export type RefType = "difficult" | "neutral" | "pleasant";
 
-const TYPE_BG: Record<RefType, { on: string; off: string }> = {
-  difficult: { on: "bg-danger text-white", off: "bg-danger/10 text-danger hover:bg-danger/20" },
-  neutral: { on: "bg-warning text-primary", off: "bg-warning/10 text-warning hover:bg-warning/20" },
-  pleasant: {
-    on: "bg-success text-primary",
-    off: "bg-success/10 text-success hover:bg-success/20",
-  },
-};
-
-const REF_TYPES: RefType[] = ["difficult", "neutral", "pleasant"];
+const REF_TYPE_OPTIONS: { value: RefType; label: string }[] = [
+  { value: "difficult", label: "Difficult" },
+  { value: "neutral", label: "Neutral" },
+  { value: "pleasant", label: "Pleasant" },
+];
 
 export function TypeSelector({
   value,
@@ -26,24 +29,16 @@ export function TypeSelector({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs text-lightgray">Type</label>
-      <div className="flex gap-2">
-        {REF_TYPES.map((t) => (
-          <button
-            key={t}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(t)}
-            className={`px-3 py-1 text-sm rounded-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              value === t ? TYPE_BG[t].on : TYPE_BG[t].off
-            }`}
-          >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Select
+      name="refItemType"
+      label="Type"
+      testId="ref-item-type"
+      variant="secondary"
+      options={REF_TYPE_OPTIONS}
+      value={value}
+      onChange={(v) => onChange(v as RefType)}
+      disabled={disabled}
+    />
   );
 }
 
