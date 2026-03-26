@@ -13,6 +13,7 @@ export const NATS_SUBJECTS = [
   "diary.entry.created",
   "diary.entry.updated",
   "diary.entry.deleted",
+  "llm.jobs.>",
 ] as const;
 
 export const ENTRY_TYPES = {

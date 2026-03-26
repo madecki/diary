@@ -4,10 +4,10 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { type InsightType, InsightsRepository } from "./insights.repository.js";
 import { LlmClient } from "./llm-client.js";
 import {
-  SYSTEM_PROMPT,
+  type InsightPromptParts,
   buildDailyPrompt,
   buildWeeklyPrompt,
-  hashPrompt,
+  hashInsightRequest,
 } from "./prompt-templates.js";
 
 const DEFAULT_MODEL = "qwen3.5:27b";
@@ -112,31 +112,29 @@ export class InsightsService {
       this.fetchEntriesInLocalRange(ownerId, weekStartStr, todayStr),
     ]);
 
-    const jobs: Array<{ type: InsightType; date: string; prompt: string }> = [];
+    const jobs: Array<{ type: InsightType; date: string; parts: InsightPromptParts }> = [];
 
     if (todayEntries.length > 0) {
-      jobs.push({
-        type: "daily",
-        date: todayStr,
-        prompt: buildDailyPrompt(todayEntries),
-      });
+      const parts = buildDailyPrompt(todayEntries);
+      if (parts.userPrompt !== "[]") {
+        jobs.push({ type: "daily", date: todayStr, parts });
+      }
     }
 
     if (weekEntries.length > 0) {
-      jobs.push({
-        type: "weekly",
-        date: todayStr,
-        prompt: buildWeeklyPrompt(weekEntries),
-      });
+      const parts = buildWeeklyPrompt(weekEntries);
+      if (parts.userPrompt !== "[]") {
+        jobs.push({ type: "weekly", date: todayStr, parts });
+      }
     }
 
     for (const job of jobs) {
       try {
-        const promptHash = hashPrompt(job.prompt);
+        const promptHash = hashInsightRequest(job.parts);
         const created = await this.llm.createJob({
           model: this.model,
-          prompt: job.prompt,
-          systemPrompt: SYSTEM_PROMPT,
+          prompt: job.parts.userPrompt,
+          systemPrompt: job.parts.systemPrompt,
           callerMeta: { insightType: job.type, date: job.date },
         });
         await this.insights.create({
