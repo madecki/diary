@@ -10,6 +10,7 @@ import {
   fetchTriggers,
   updateEntry,
 } from "@/lib/api";
+import { markDiaryInsightsRegenerationPending } from "@/lib/insight-regeneration-flag";
 import { extractBlocks, todayLocalDateTime } from "@/lib/utils";
 import type { Block } from "@blocknote/core";
 import type {
@@ -27,6 +28,7 @@ import {
   Heading,
   Hr,
   Input,
+  Select,
   Spinner,
   Stack,
   Text,
@@ -422,6 +424,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
         }
       }
 
+      markDiaryInsightsRegenerationPending();
       router.push("/");
     } catch (err) {
       setIsSaving(false);
@@ -515,42 +518,20 @@ export function CheckinForm({ entry }: CheckinFormProps) {
 
             <Hr />
 
-            {/* Morning / Evening toggle */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-icongray">Check-in type</label>
-              <div className="flex gap-3">
-                <Button
-                  id="type-morning"
-                  variant="info"
-                  size="sm"
-                  isActive={checkInType === "morning"}
-                  label="Morning"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={(_maybeId?: string) => handleTypeChange("morning")}
-                />
-                <Button
-                  id="type-evening"
-                  variant="info"
-                  size="sm"
-                  isActive={checkInType === "evening"}
-                  label="Evening"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={(_maybeId?: string) => handleTypeChange("evening")}
-                />
-                <Button
-                  id="type-basic"
-                  variant="info"
-                  size="sm"
-                  isActive={checkInType === "basic"}
-                  label="Basic"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={(_maybeId?: string) => handleTypeChange("basic")}
-                />
-              </div>
-            </div>
+            <Select
+              name="checkInType"
+              label="Check-in type"
+              testId="checkin-type"
+              variant="secondary"
+              options={[
+                { value: "morning", label: "🌅 Morning" },
+                { value: "evening", label: "🌙 Evening" },
+                { value: "basic", label: "📝 Basic" },
+              ]}
+              value={checkInType}
+              onChange={(v) => handleTypeChange(v as "morning" | "evening" | "basic")}
+              disabled={isSaving}
+            />
 
             {(checkInType === "morning" || checkInType === "evening") && (
               <>
@@ -729,6 +710,7 @@ export function CheckinForm({ entry }: CheckinFormProps) {
           onConfirm={async () => {
             await deleteEntry(entry.id);
             setShowDeleteModal(false);
+            markDiaryInsightsRegenerationPending();
             router.push("/");
           }}
         />

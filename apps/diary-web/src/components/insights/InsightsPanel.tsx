@@ -1,12 +1,19 @@
 "use client";
 
 import { type InsightResponse, type LatestInsightsResponse, fetchLatestInsights } from "@/lib/api";
+import {
+  clearDiaryInsightsRegenerationPending,
+  peekDiaryInsightsRegenerationPending,
+} from "@/lib/insight-regeneration-flag";
 import { Stack } from "@madecki/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { InsightCard } from "./InsightCard";
+import { InsightsSkeleton } from "./InsightsSkeleton";
 
 const POLL_MS = 3000;
 const POLL_MAX_MS = 120_000;
+const REGEN_POLL_MS = 2000;
+const REGEN_GIVE_UP_MS = 35_000;
 
 function needsPolling(data: LatestInsightsResponse | null): boolean {
   if (!data) return false;
@@ -19,19 +26,41 @@ export function InsightsPanel() {
   const [data, setData] = useState<LatestInsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [timedOut, setTimedOut] = useState(false);
+  const [expectingRegeneration, setExpectingRegeneration] = useState(peekDiaryInsightsRegenerationPending);
   const stableDaily = useRef<InsightResponse | null>(null);
   const stableWeekly = useRef<InsightResponse | null>(null);
   const pollingStartedAt = useRef<number | null>(null);
+  const expectingRegenRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!expectingRegeneration) return;
+    stableDaily.current = null;
+    stableWeekly.current = null;
+    expectingRegenRef.current = true;
+  }, [expectingRegeneration]);
 
   const refresh = useCallback(async () => {
     try {
       const next = await fetchLatestInsights();
       setData(next);
-      if (next.daily?.status === "completed") {
-        stableDaily.current = next.daily;
+      if (!expectingRegenRef.current) {
+        if (next.daily?.status === "completed") {
+          stableDaily.current = next.daily;
+        }
+        if (next.weekly?.status === "completed") {
+          stableWeekly.current = next.weekly;
+        }
       }
-      if (next.weekly?.status === "completed") {
-        stableWeekly.current = next.weekly;
+      if (expectingRegenRef.current && needsPolling(next)) {
+        expectingRegenRef.current = false;
+        clearDiaryInsightsRegenerationPending();
+        setExpectingRegeneration(false);
+        if (next.daily?.status === "completed") {
+          stableDaily.current = next.daily;
+        }
+        if (next.weekly?.status === "completed") {
+          stableWeekly.current = next.weekly;
+        }
       }
     } catch {
       // keep previous data
@@ -43,6 +72,26 @@ export function InsightsPanel() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!expectingRegeneration) return;
+    const id = window.setInterval(() => {
+      void refresh();
+    }, REGEN_POLL_MS);
+    return () => clearInterval(id);
+  }, [expectingRegeneration, refresh]);
+
+  useEffect(() => {
+    if (!expectingRegeneration) return;
+    const t = window.setTimeout(() => {
+      if (!expectingRegenRef.current) return;
+      expectingRegenRef.current = false;
+      clearDiaryInsightsRegenerationPending();
+      setExpectingRegeneration(false);
+      void refresh();
+    }, REGEN_GIVE_UP_MS);
+    return () => clearTimeout(t);
+  }, [expectingRegeneration, refresh]);
 
   const polling = needsPolling(data);
 
@@ -74,6 +123,15 @@ export function InsightsPanel() {
       window.clearInterval(timeoutId);
     };
   }, [polling, refresh]);
+
+  if (expectingRegeneration) {
+    return (
+      <Stack direction="vertical" gap="4" className="w-full">
+        <InsightsSkeleton />
+        <InsightsSkeleton />
+      </Stack>
+    );
+  }
 
   if (!loading && data && !data.daily && !data.weekly) {
     return null;
