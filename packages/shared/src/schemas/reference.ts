@@ -93,3 +93,38 @@ export const UpdateTagSchema = z.object({
   name: z.string().trim().min(1).max(50),
 });
 export type UpdateTagInput = z.infer<typeof UpdateTagSchema>;
+
+// ── User profile (settings API; keep in sync with @settings/shared) ───────
+
+const richTextJsonString = z
+  .string()
+  .max(50_000)
+  .refine(
+    (v) => {
+      if (v === "") return true;
+      try {
+        const parsed = JSON.parse(v) as unknown;
+        return typeof parsed === "object" && parsed !== null;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Must be empty or valid JSON object" },
+  );
+
+export const UserProfileResponseSchema = z.object({
+  name: z.string(),
+  bio: z.string(),
+  goals: z.string(),
+  struggles: z.string(),
+  updatedAt: z.string(),
+});
+export type UserProfileResponse = z.infer<typeof UserProfileResponseSchema>;
+
+export const UpdateUserProfileSchema = z.object({
+  name: z.string().trim().max(200).optional(),
+  bio: richTextJsonString.optional(),
+  goals: richTextJsonString.optional(),
+  struggles: richTextJsonString.optional(),
+});
+export type UpdateUserProfileInput = z.infer<typeof UpdateUserProfileSchema>;

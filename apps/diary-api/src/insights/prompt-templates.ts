@@ -128,20 +128,28 @@ export type InsightPromptParts = {
   userPrompt: string;
 };
 
-export function buildDailyPrompt(entries: Entry[], now = new Date()): InsightPromptParts {
+export function buildDailyPrompt(
+  entries: Entry[],
+  now = new Date(),
+  userContext = "",
+): InsightPromptParts {
   const checkins = [...entries]
     .map(entryToCheckInPayload)
     .filter((x): x is CheckInPayload => x !== null)
     .sort(sortCheckInsAsc);
   const userPrompt = JSON.stringify(checkins);
-  const systemPrompt = substituteSystemTemplate(loadDailyTemplate(), now, "");
+  const systemPrompt = substituteSystemTemplate(loadDailyTemplate(), now, userContext);
   return { systemPrompt, userPrompt };
 }
 
-export function buildWeeklyPrompt(entries: Entry[], now = new Date()): InsightPromptParts {
+export function buildWeeklyPrompt(
+  entries: Entry[],
+  now = new Date(),
+  userContext = "",
+): InsightPromptParts {
   const checkins = fitWeeklyCheckins(entries);
   const userPrompt = JSON.stringify(checkins);
-  const systemPrompt = substituteSystemTemplate(loadWeeklyTemplate(), now, "");
+  const systemPrompt = substituteSystemTemplate(loadWeeklyTemplate(), now, userContext);
   return { systemPrompt, userPrompt };
 }
 

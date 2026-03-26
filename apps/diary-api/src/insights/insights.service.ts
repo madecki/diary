@@ -3,6 +3,7 @@ import type { Entry, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { type InsightType, InsightsRepository } from "./insights.repository.js";
 import { LlmClient } from "./llm-client.js";
+import { type UserContextResponse, SettingsClient } from "./settings-client.js";
 import {
   type InsightPromptParts,
   buildDailyPrompt,
@@ -39,6 +40,7 @@ export class InsightsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(InsightsRepository) private readonly insights: InsightsRepository,
     @Inject(LlmClient) private readonly llm: LlmClient,
+    @Inject(SettingsClient) private readonly settings: SettingsClient,
   ) {
     this.debounceMs = Number(process.env.INSIGHT_DEBOUNCE_MS ?? DEFAULT_DEBOUNCE_MS);
     this.model = process.env.DIARY_INSIGHT_MODEL ?? DEFAULT_MODEL;
@@ -90,6 +92,17 @@ export class InsightsService {
     });
   }
 
+  private formatUserContext(ctx: UserContextResponse | null): string {
+    if (!ctx) return "";
+    const parts: string[] = [];
+    if (ctx.name.trim()) parts.push(`User's name: ${ctx.name.trim()}`);
+    if (ctx.bio.trim()) parts.push(`About the user: ${ctx.bio.trim()}`);
+    if (ctx.goals.trim()) parts.push(`User's goals: ${ctx.goals.trim()}`);
+    if (ctx.struggles.trim()) parts.push(`User's struggles: ${ctx.struggles.trim()}`);
+    if (parts.length === 0) return "";
+    return `User context (use this to personalize your response):\n${parts.join("\n")}`;
+  }
+
   private utcTodayParts(): { todayStr: string; weekStartStr: string } {
     const now = new Date();
     const y = now.getUTCFullYear();
@@ -107,22 +120,25 @@ export class InsightsService {
 
     const { todayStr, weekStartStr } = this.utcTodayParts();
 
-    const [todayEntries, weekEntries] = await Promise.all([
+    const [todayEntries, weekEntries, settingsCtx] = await Promise.all([
       this.fetchEntriesInLocalRange(ownerId, todayStr, todayStr),
       this.fetchEntriesInLocalRange(ownerId, weekStartStr, todayStr),
+      this.settings.getUserContext(ownerId),
     ]);
+
+    const userContext = this.formatUserContext(settingsCtx);
 
     const jobs: Array<{ type: InsightType; date: string; parts: InsightPromptParts }> = [];
 
     if (todayEntries.length > 0) {
-      const parts = buildDailyPrompt(todayEntries);
+      const parts = buildDailyPrompt(todayEntries, new Date(), userContext);
       if (parts.userPrompt !== "[]") {
         jobs.push({ type: "daily", date: todayStr, parts });
       }
     }
 
     if (weekEntries.length > 0) {
-      const parts = buildWeeklyPrompt(weekEntries);
+      const parts = buildWeeklyPrompt(weekEntries, new Date(), userContext);
       if (parts.userPrompt !== "[]") {
         jobs.push({ type: "weekly", date: todayStr, parts });
       }

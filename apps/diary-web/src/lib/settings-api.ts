@@ -8,6 +8,8 @@ import type {
   TagResponse,
   UpdateProjectInput,
   UpdateTagInput,
+  UserProfileResponse,
+  UpdateUserProfileInput,
 } from "@diary/shared";
 
 const API_BASE = "/settings";
@@ -102,4 +104,12 @@ export function updateTag(id: string, input: UpdateTagInput): Promise<TagRespons
 
 export function deleteTag(id: string): Promise<void> {
   return request("DELETE", `/tags/${id}`);
+}
+
+export function fetchProfile(): Promise<UserProfileResponse> {
+  return request("GET", "/profile");
+}
+
+export function updateProfile(input: UpdateUserProfileInput): Promise<UserProfileResponse> {
+  return request("PATCH", "/profile", input);
 }
