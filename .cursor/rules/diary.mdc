@@ -1,0 +1,53 @@
+---
+description: diary — Turborepo MFE, API, worker, shared packages
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# diary (OmniRadon)
+
+Turborepo monorepo: diary web (Next.js MFE), REST API (NestJS), background worker, shared packages.
+
+## Stack
+
+- **Monorepo:** pnpm workspaces, Turbo, Node ≥ 22, TypeScript
+- **Lint / format:** Biome
+- **Web (`apps/diary-web`):** Next.js 16, React 19, BlockNote, Mantine, Tailwind 4
+- **API (`apps/diary-api`):** NestJS 11, Fastify 5, Zod DTOs where used
+- **Worker (`apps/diary-worker`):** NATS JetStream consumer, outbox publishing, Prisma
+- **E2E (`apps/diary-e2e`):** Playwright (cross-app flows)
+- **Packages:** `@diary/database` (Prisma 7, `adapter-pg`), `@diary/shared` (Zod schemas, shared types)
+
+## Ports (local dev)
+
+- **diary-web:** `4280`
+- **diary-api:** `4281` (default `PORT`)
+- **Infra (compose):** Postgres `54320`, NATS `42220` — see `infra/docker-compose.yml`
+
+## Layout
+
+- `apps/diary-web/` — Next app router, MFE assets, Playwright under app/package scripts
+- `apps/diary-api/` — Nest modules: entries, emotions, triggers, events, health, etc.; global guards, filters, correlation middleware
+- `apps/diary-worker/` — outbox / NATS — not an HTTP API; favor small focused modules and testable handlers
+- `apps/diary-e2e/` — full-stack e2e
+- `packages/database/` — Prisma schema, migrations, client export
+- `packages/shared/` — cross-app schemas and constants
+- `infra/` — local Docker Compose
+- `prompts/` — LLM prompt templates (documentation / content)
+
+## Patterns
+
+- **Gateway** fronts the browser; API is called via gateway paths with **service token** auth (`DIARY_SERVICE_TOKEN`) — not end-user JWT on the API.
+- **Transactional outbox:** domain writes + outbox rows in API; worker publishes to NATS for downstream (e.g. llm-service).
+- Prefer **repository** classes for Prisma in the API; keep services persistence-agnostic.
+
+## Testing
+
+- **API / shared:** Vitest
+- **Web / e2e:** Playwright (`diary-web` scripts, `diary-e2e`)
+- Worker: add or extend tests when changing publish/consume logic (no silent untested paths).
+
+## Related repos
+
+- **gateway** — routes `/mfe/diary/*` and `/diary/*` upstreams.
+- **llm-service** — consumes diary-related NATS subjects.

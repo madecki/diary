@@ -1,0 +1,45 @@
+---
+description: Frontend standards — components, React Query, errors, Playwright
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Frontend standards (React / Next.js)
+
+## Component folder structure
+
+For a non-trivial component, prefer one folder per component with:
+
+| File | Role |
+|------|------|
+| `ComponentName.tsx` | JSX only — no business logic |
+| `useComponentName.ts` | Hooks and logic for the component |
+| `ComponentName.test.ts` | Playwright tests |
+| `ComponentName.types.ts` | Types and interfaces |
+| `componentName.utils.ts` | Pure helpers (optional) |
+
+Do not mix heavy logic and JSX in the same file.
+
+## Where components live
+
+- `components/` — reusable pieces shared across multiple views/routes.
+- View-specific UI stays next to its route/page (e.g. under `app/` or a colocated `components` folder for that feature).
+
+## Data fetching
+
+- Use **TanStack Query (React Query)** for server state — not `useState` + `useEffect` for fetching.
+- `useState` is fine for local UI state (modals, form drafts, toggles).
+- Do not mirror server responses in `useState` long-term; let the cache be the source of truth.
+
+## Errors and validation
+
+- Wrap meaningful route segments or views in an **error boundary** with fallback UI and a **retry** action when appropriate.
+- Surface API errors (4xx/5xx) with **toast** (or equivalent) and user-friendly copy — never raw stack traces or internal messages in production UI.
+- Form validation errors appear **inline** next to fields.
+
+## Testing
+
+- Use **Playwright** for browser tests.
+- Mock the backend with **Playwright** (route interception, fixtures) or **MSW** — no real API calls in CI/component tests unless explicitly an integration suite.
+- Every component or view should have at least a **smoke** test.
+- Keep tests next to the code they cover (same folder as the component or feature).
