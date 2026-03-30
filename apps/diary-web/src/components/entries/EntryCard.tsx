@@ -52,31 +52,19 @@ function moodTagVariant(mood: number): "success" | "danger" | "warning" | "info"
   return "info";
 }
 
-export function EntryCard({
-  entry,
-  emotionTypeByLabel,
-  triggerTypeByLabel,
-}: EntryCardProps) {
-  const isCheckin = entry.type === "checkin";
+export function EntryCard({ entry, emotionTypeByLabel, triggerTypeByLabel }: EntryCardProps) {
   const dateTime = formatDateTime(entry.localDateTime);
-
-  const title = isCheckin ? checkinTitle(entry) : entry.title;
-  const preview = isCheckin ? checkinPreview(entry) : truncate(entry.plainText ?? "", 150);
+  const title = checkinTitle(entry);
+  const preview = checkinPreview(entry);
 
   return (
     <Link href={`/entries/${entry.id}`} className="block group">
       <div className="bg-darkgray rounded-sm p-6 border border-gray/30 transition-colors hover:border-lightgray/50 hover:bg-gray/20">
         <Stack direction="vertical" gap="4">
-          {/* Header row */}
           <div className="flex items-start justify-between gap-4">
             <Stack direction="vertical" gap="2">
-              {/* Type + mood + check-in variant badges */}
               <div className="flex items-center gap-3 flex-wrap">
-                {!isCheckin && entry.noteFolderPath && (
-                  <Tag variant="primary" size="xs" muted label={entry.noteFolderPath} />
-                )}
-
-                {isCheckin && entry.mood !== null && entry.mood !== undefined && (
+                {entry.mood !== null && entry.mood !== undefined && (
                   <Tag variant={moodTagVariant(entry.mood)} size="xs">
                     <span className="inline-flex items-center gap-1">
                       <span>Mood {entry.mood}/10</span>
@@ -85,7 +73,7 @@ export function EntryCard({
                   </Tag>
                 )}
 
-                {isCheckin && entry.checkInType && (
+                {entry.checkInType && (
                   <Tag
                     variant="primary"
                     size="xs"
@@ -101,7 +89,6 @@ export function EntryCard({
                 )}
               </div>
 
-              {/* Title */}
               {title && (
                 <Heading level={3} size="md" weight="semibold">
                   {title}
@@ -109,49 +96,45 @@ export function EntryCard({
               )}
             </Stack>
 
-            {/* Date & time — suppressHydrationWarning because locale formatting differs between server and client */}
             <Text size="sm" color="muted" className="shrink-0 mt-1">
               <span suppressHydrationWarning>{dateTime}</span>
             </Text>
           </div>
 
-          {/* Preview text */}
           {preview && (
             <Text size="sm" color="muted" className="leading-relaxed">
               {preview}
             </Text>
           )}
 
-          {/* Emotions + triggers tags for check-ins */}
-          {isCheckin &&
-            ((entry.emotions?.length ?? 0) > 0 || (entry.triggers?.length ?? 0) > 0) && (
-              <div className="flex flex-wrap gap-2">
-                {entry.emotions?.map((emotion) => {
-                  const refType = emotionTypeByLabel?.[emotion];
-                  return (
-                    <Tag
-                      key={emotion}
-                      variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "info"}
-                      size="xs"
-                      muted={!refType}
-                      label={emotion}
-                    />
-                  );
-                })}
-                {entry.triggers?.map((trigger) => {
-                  const refType = triggerTypeByLabel?.[trigger];
-                  return (
-                    <Tag
-                      key={trigger}
-                      variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "primary"}
-                      size="xs"
-                      muted={!refType}
-                      label={trigger}
-                    />
-                  );
-                })}
-              </div>
-            )}
+          {((entry.emotions?.length ?? 0) > 0 || (entry.triggers?.length ?? 0) > 0) && (
+            <div className="flex flex-wrap gap-2">
+              {entry.emotions?.map((emotion) => {
+                const refType = emotionTypeByLabel?.[emotion];
+                return (
+                  <Tag
+                    key={emotion}
+                    variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "info"}
+                    size="xs"
+                    muted={!refType}
+                    label={emotion}
+                  />
+                );
+              })}
+              {entry.triggers?.map((trigger) => {
+                const refType = triggerTypeByLabel?.[trigger];
+                return (
+                  <Tag
+                    key={trigger}
+                    variant={refType ? REF_TYPE_TAG_VARIANT[refType] : "primary"}
+                    size="xs"
+                    muted={!refType}
+                    label={trigger}
+                  />
+                );
+              })}
+            </div>
+          )}
         </Stack>
       </div>
     </Link>

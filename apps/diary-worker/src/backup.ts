@@ -14,6 +14,10 @@ export class MarkdownBackup {
     const type = payload.aggregate.type;
     const localDateTime = payload.data.derived.localDateTime;
 
+    if (type !== "checkin") {
+      return;
+    }
+
     try {
       if (payload.eventName === "diary.entry.deleted") {
         await this.moveToDeleted(localDateTime, type, id);
@@ -21,11 +25,7 @@ export class MarkdownBackup {
         return;
       }
 
-      const markdown =
-        type === "checkin"
-          ? renderCheckin(payload.data.entrySnapshot, payload.data.derived)
-          : renderNote(payload.data.entrySnapshot);
-
+      const markdown = renderCheckin(payload.data.entrySnapshot, payload.data.derived);
       await this.writeFile(localDateTime, type, id, markdown);
       console.log(`[MarkdownBackup] Backed up ${payload.eventName} ${id}`);
     } catch (err) {
@@ -62,32 +62,6 @@ export class MarkdownBackup {
       // File may not exist if backup was never written for this entry
     }
   }
-}
-
-// ─── Renderers ────────────────────────────────────────────────────────────────
-
-function renderNote(snapshot: Record<string, unknown>): string {
-  const title = (snapshot.title as string | null) ?? "Untitled";
-  const plainText = (snapshot.plainText as string | null) ?? "";
-  const wordCount = snapshot.wordCount as number | null;
-  const noteFolderPath = snapshot.noteFolderPath as string | null;
-  const createdAt = snapshot.createdAt as string;
-  const updatedAt = snapshot.updatedAt as string;
-  const localDateTime = snapshot.localDateTime as string;
-  const id = snapshot.id as string;
-
-  const frontmatter = buildFrontmatter({
-    id,
-    type: "note",
-    date: localDateTime,
-    title,
-    folder_path: noteFolderPath,
-    word_count: wordCount,
-    created_at: createdAt,
-    updated_at: updatedAt,
-  });
-
-  return `${frontmatter}\n# ${title}\n\n${plainText}\n`;
 }
 
 function renderCheckin(
@@ -161,8 +135,6 @@ function renderCheckin(
 
   return sections.join("\n\n") + "\n";
 }
-
-// ─── Minimal YAML frontmatter builder ─────────────────────────────────────────
 
 type YamlValue = string | number | null | undefined | string[];
 

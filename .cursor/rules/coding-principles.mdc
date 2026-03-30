@@ -37,45 +37,26 @@ This is a personal diary — data loss is unacceptable. Follow these rules:
 4. The `diary-worker` writes automatic Markdown backups to `diary-backups/YYYY/MM/YYYY-MM-DD_[type]_[id].md` after every entry create/update. Deleted entries are moved to `diary-backups/_deleted/` — never deleted from disk.
 5. To export all current entries to Markdown: `pnpm db:backup`.
 
-# Entry Types
+# Entries (check-ins only)
 
-The `entries` table stores two types in a single flat model:
-- `note` — has `title?`, `contentJson` (BlockNote JSON), `plainText`, `wordCount`, optional `projectId` (FK to `projects`), and M:M `tags` relation.
-- `checkin` — has `checkInType` (morning/evening/basic), `mood` (1-10), `emotions[]`, `triggers[]`, optional rich **note** (`contentJson` / `plainText` / `wordCount`, same BlockNote shape as notes) on morning/evening, and type-specific fields for morning (`whatImGratefulFor`, `whatWouldMakeDayGreat`, `dailyAffirmation`) and evening (`highlightsOfTheDay`, `whatDidILearnToday`). **Basic** has mood, emotions, triggers, and a **required** note (cannot be cleared via API once basic).
-
-Fields not relevant to a type are `null` or `[]`. Project and tags are only meaningful for notes — never shown or editable on check-ins.
-
-# Note Folders
-
-Notes can be organized into a hierarchical folder tree (`note_folders` table, self-referential by `parentId`). Key points:
-- Folders are identified by a **path string** (e.g. `work/projects/q1`) which is unique and derived from the tree structure.
-- API endpoints: `GET /entries/note-folders` (list all), `POST /entries/note-folders` (create by path, auto-creates ancestors), `PATCH /entries/note-folders` (rename — updates name and all descendant paths), `DELETE /entries/note-folders?path=...&force=false` (delete; `force=true` required for non-empty), `GET /entries/notes/browse?path=...` (list direct children + notes at a level).
-- Deleting a folder cascades to sub-folders; notes inside get `noteFolderId = null` (moved to root) via `onDelete: SetNull`.
-- **Renaming** a folder updates the folder's `name` and `path`, and recursively rewrites all descendant `path` strings within a transaction.
-- `BrowseNotesResponse.folders` is typed as `BrowseFolderItem[]` (extends `NoteFolderResponse` with `notesCount` and `foldersCount` counts).
-- **UI behaviour**: Creating a folder uses a modal triggered by a "Create folder" button (not inline input). The new note form does **not** show a folder picker — the folder is inherited from the URL param `?folder=...` set when "Add new" is clicked from within a folder view. The edit note form also does **not** show a folder picker — it shows a simple read-only banner indicating the current folder (matching the add-note experience).
+The `entries` table stores **check-ins** only (`EntryType.checkin`). Each row has `checkInType` (morning / evening / basic), `mood` (1–10), `emotions[]`, `triggers[]`, type-specific text fields, and optional rich **note** fields (`contentJson` BlockNote JSON, `plainText`, `wordCount`) on morning/evening; **basic** requires a note body (cannot be cleared via API once set). Standalone notes, folders, projects, and per-entry tags were removed from diary — use the separate Notepad app and settings-service for those concerns.
 
 # Root Page UI Navigation
 
-The root page (`/`) shows three tabs: **Notes**, **Check-ins** (default when `view` is omitted), and **Settings**. URL param `?view=` selects the tab: `notes` and `settings` are explicit; any other or missing value shows **Check-ins**.
+The root page (`/`) shows two tabs: **Check-ins** (default) and **Settings**. URL param `?view=settings` opens Settings; any other or missing value shows **Check-ins**.
 
-- **Notes tab**: shows a breadcrumb + two inline toolbar buttons ("Add new" → `/entries/new/note` with optional `?folder=` param, and "Create folder" → modal). Below the toolbar: folder cards, then note cards for the current folder level.
-- **Check-ins tab**: shows a single "Add new" → `/entries/new/checkin` button in the top-right corner of the tab area, then the filtered list of check-in entries.
-- **Settings tab**: shows two sections — **Check-in options** (manage emotions and triggers) and **Notes options** (manage projects and tags). Search input and entry counts are hidden when settings is active.
-- **Entry creation buttons** are **not** in the page header — they live inside each tab's content area.
+- **Check-ins tab**: "Add new" → `/entries/new/checkin`, then the list of check-ins (search, load more).
+- **Settings tab**: **Check-in options** only (emotions and triggers). Search and entry counts are hidden when settings is active.
+- **Entry creation** is not in the page header — it lives in the tab content.
 - **Empty states** show only text — no action buttons.
 
-# Settings
+# Settings (diary MFE)
 
-The Settings tab (`?view=settings`) allows managing reference data:
+The Settings tab (`?view=settings`) manages **emotions** and **triggers** via diary-api (`GET/POST /emotions`, `PATCH /emotions/:id`, `DELETE /emotions/:id`, and the same pattern for `/triggers`). Colored tag buttons (difficult=danger, neutral=warning, pleasant=success). **Deleting an emotion or trigger used in any check-in returns 409**; delete is disabled in the UI when in use. **Renaming** propagates to existing check-ins via `array_replace` on the `entries.emotions` / `entries.triggers` columns.
 
-- **Emotions** (`GET/POST /emotions`, `PATCH /emotions/:id`, `DELETE /emotions/:id`): Colored tag buttons matching the check-in form appearance (difficult=danger, neutral=warning, pleasant=success). Each emotion shows its usage count. **Deleting an emotion used in any check-in returns 409** and the delete button is disabled in the UI. **Renaming an emotion label propagates to all existing check-ins** via `array_replace` on the `entries.emotions` column.
-- **Triggers** (same pattern as emotions, `GET/POST /triggers`, `PATCH /triggers/:id`, `DELETE /triggers/:id`): Same usage-check and label-propagation behavior.
-- **Default emotions and triggers**: Every user gets a default set (defined in `@diary/shared` as `DEFAULT_EMOTIONS` and `DEFAULT_TRIGGERS`). New users receive them on first `GET /emotions` or `GET /triggers` (lazy-seed). Users can add, rename, or remove items.
-- **Projects** (`GET/POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`): Name (unique) + optional description. Deleting a project sets `projectId = null` on all its notes (SetNull cascade). Projects can be assigned to notes via `projectId` field.
-- **Tags** (`GET/POST /tags`, `PATCH /tags/:id`, `DELETE /tags/:id`): Simple name-only tags. Tags can be assigned to multiple notes (M:M via `_EntryTags` join table). Deleting a tag removes the association from all notes (CASCADE).
+**Default emotions and triggers** come from `@diary/shared` (`DEFAULT_EMOTIONS`, `DEFAULT_TRIGGERS`); lazy-seed on first list.
 
-The `EmotionResponse` and `TriggerResponse` schemas include `usageCount: number` — computed live on each list call.
+The `EmotionResponse` and `TriggerResponse` schemas include `usageCount: number` — computed on each list call.
 
 # Shared Package
 
@@ -96,5 +77,5 @@ When you implement any new features or edit existing ones, ALWAYS review existin
 When writing or editing tests:
 - Run them and iterate until they pass and truly reflect app behavior.
 - Tests guard the app — write them to catch real regressions, not just to make the suite green.
-- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries`, `outbox_events`, `note_folders`, `projects`, and `tags` — but **not** `emotions` or `triggers` since those are seeded reference data). Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
+- The E2E global setup starts diary-api, diary-web, and diary-worker. Tests share a database and reset it in `beforeEach` via `resetDatabase()` (truncates `entries` and `outbox_events` — but **not** `emotions` or `triggers` since those are seeded reference data). Settings DB tests use `resetSettingsDatabase()` for `projects` / `tags` in settings-service. Workers run with `BACKUP_DIR` pointing to a test-specific directory that is cleaned up after the suite.
 - When testing async side effects (backup files, NATS events), poll with a reasonable timeout (10–15s) rather than using fixed sleeps.

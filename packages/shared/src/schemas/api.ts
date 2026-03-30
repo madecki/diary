@@ -193,87 +193,13 @@ export const UpdateCheckinSchema = z.union([
 ]);
 export type UpdateCheckinInput = z.infer<typeof UpdateCheckinSchema>;
 
-// ── Note ────────────────────────────────────────────────────────────
-
-export const CreateNoteSchema = z.object({
-  contentJson: z.record(z.unknown()),
-  plainText: z.string(),
-  wordCount: z.number().int().min(0),
-  title: z.string().max(200).optional(),
-  folderPath: z.string().trim().min(1).optional(),
-  projectId: z.string().optional(),
-  tagIds: z.array(z.string()).optional(),
-  localDateTime: localDateTimeSchema,
-});
-export type CreateNoteInput = z.infer<typeof CreateNoteSchema>;
-
-export const UpdateNoteSchema = z.object({
-  contentJson: z.record(z.unknown()).optional(),
-  plainText: z.string().optional(),
-  wordCount: z.number().int().min(0).optional(),
-  title: z.string().max(200).nullable().optional(),
-  folderPath: z.string().trim().min(1).nullable().optional(),
-  projectId: z.string().nullable().optional(),
-  tagIds: z.array(z.string()).optional(),
-  localDateTime: localDateTimeSchema,
-});
-export type UpdateNoteInput = z.infer<typeof UpdateNoteSchema>;
-
 // ── Query ───────────────────────────────────────────────────────────
 
 export const ListEntriesQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.enum(["checkin", "note"]).optional(),
 });
 export type ListEntriesQuery = z.infer<typeof ListEntriesQuerySchema>;
-
-// ── Note Folders ────────────────────────────────────────────────────
-
-export const CreateNoteFolderSchema = z.object({
-  path: z.string().trim().min(1),
-});
-export type CreateNoteFolderInput = z.infer<typeof CreateNoteFolderSchema>;
-
-export const NoteFolderResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  path: z.string(),
-  parentId: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export type NoteFolderResponse = z.infer<typeof NoteFolderResponseSchema>;
-
-export const BrowseFolderItemSchema = NoteFolderResponseSchema.extend({
-  notesCount: z.number().int(),
-  foldersCount: z.number().int(),
-});
-export type BrowseFolderItem = z.infer<typeof BrowseFolderItemSchema>;
-
-export const BrowseNotesQuerySchema = z.object({
-  path: z.string().trim().min(1).optional(),
-});
-export type BrowseNotesQuery = z.infer<typeof BrowseNotesQuerySchema>;
-
-export const DeleteNoteFolderQuerySchema = z.object({
-  path: z.string().trim().min(1),
-  force: z.coerce.boolean().default(false),
-});
-export type DeleteNoteFolderQuery = z.infer<typeof DeleteNoteFolderQuerySchema>;
-
-export const RenameNoteFolderSchema = z.object({
-  path: z.string().trim().min(1),
-  newName: z.string().trim().min(1),
-});
-export type RenameNoteFolderInput = z.infer<typeof RenameNoteFolderSchema>;
-
-export const BrowseNotesResponseSchema = z.object({
-  currentPath: z.string().nullable(),
-  folders: z.array(BrowseFolderItemSchema),
-  notes: z.array(EntryResponseSchema),
-});
-export type BrowseNotesResponse = z.infer<typeof BrowseNotesResponseSchema>;
 
 // ── Admin: Outbox ───────────────────────────────────────────────────
 

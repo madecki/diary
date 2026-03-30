@@ -10,10 +10,8 @@
  * redirected to /login (the shell login page, served through the gateway).
  */
 import type {
-  BrowseNotesResponse,
   CreateCheckinInput,
   CreateEmotionInput,
-  CreateNoteInput,
   CreateTriggerInput,
   EmotionResponse,
   EntryResponse,
@@ -21,7 +19,6 @@ import type {
   TriggerResponse,
   UpdateCheckinInput,
   UpdateEmotionInput,
-  UpdateNoteInput,
   UpdateTriggerInput,
 } from "@diary/shared";
 
@@ -55,10 +52,6 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 function redirectToLogin(): void {
-  // When running inside the shell's iframe, navigate the top frame to /login
-  // so the whole app goes to the login page, not just the iframe.
-  // ?expired=1 tells the login page to skip its "already authenticated" redirect
-  // so we don't loop back to the app before cookies have been fully cleared.
   const target = window !== window.top ? window.top : window;
   (target ?? window).location.href = `${LOGIN_PATH}?expired=1`;
 }
@@ -97,17 +90,13 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
-// ── Entries ────────────────────────────────────────────────────────
-
 export function fetchEntries(params: {
   limit?: number;
   cursor?: string;
-  type?: string;
 }): Promise<ListEntriesResponse> {
   const qs = new URLSearchParams();
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.cursor) qs.set("cursor", params.cursor);
-  if (params.type) qs.set("type", params.type);
   const query = qs.toString() ? `?${qs.toString()}` : "";
   return request("GET", `/entries${query}`);
 }
@@ -120,22 +109,13 @@ export function createCheckin(input: CreateCheckinInput): Promise<EntryResponse>
   return request("POST", "/entries/checkins", input);
 }
 
-export function createNote(input: CreateNoteInput): Promise<EntryResponse> {
-  return request("POST", "/entries/notes", input);
-}
-
-export function updateEntry(
-  id: string,
-  input: UpdateCheckinInput | UpdateNoteInput,
-): Promise<EntryResponse> {
+export function updateEntry(id: string, input: UpdateCheckinInput): Promise<EntryResponse> {
   return request("PATCH", `/entries/${id}`, input);
 }
 
 export function deleteEntry(id: string): Promise<void> {
   return request("DELETE", `/entries/${id}`);
 }
-
-// ── Insights ───────────────────────────────────────────────────────
 
 export function fetchLatestInsights(): Promise<LatestInsightsResponse> {
   return request("GET", "/insights/latest");
@@ -144,32 +124,6 @@ export function fetchLatestInsights(): Promise<LatestInsightsResponse> {
 export function fetchInsight(id: string): Promise<InsightResponse> {
   return request("GET", `/insights/${id}`);
 }
-
-// ── Note folders ───────────────────────────────────────────────────
-
-export function browseNotes(path?: string | null): Promise<BrowseNotesResponse> {
-  const query = path ? `?path=${encodeURIComponent(path)}` : "";
-  return request("GET", `/entries/notes/browse${query}`);
-}
-
-export function createNoteFolder(input: { path: string }): Promise<{ id: string; path: string }> {
-  return request("POST", "/entries/note-folders", input);
-}
-
-export function renameNoteFolder(input: { path: string; newName: string }): Promise<{
-  id: string;
-  path: string;
-}> {
-  return request("PATCH", "/entries/note-folders", input);
-}
-
-export function deleteNoteFolder(path: string, force?: boolean): Promise<void> {
-  const params = new URLSearchParams({ path });
-  if (force) params.set("force", "true");
-  return request("DELETE", `/entries/note-folders?${params.toString()}`);
-}
-
-// ── Emotions ───────────────────────────────────────────────────────
 
 export function fetchEmotions(): Promise<EmotionResponse[]> {
   return request("GET", "/emotions");
@@ -186,8 +140,6 @@ export function updateEmotion(id: string, input: UpdateEmotionInput): Promise<Em
 export function deleteEmotion(id: string): Promise<void> {
   return request("DELETE", `/emotions/${id}`);
 }
-
-// ── Triggers ───────────────────────────────────────────────────────
 
 export function fetchTriggers(): Promise<TriggerResponse[]> {
   return request("GET", "/triggers");

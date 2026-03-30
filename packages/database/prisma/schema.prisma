@@ -8,7 +8,6 @@ datasource db {
 
 enum EntryType {
   checkin
-  note
 }
 
 enum CheckInType {
@@ -30,27 +29,22 @@ enum Permission {
 }
 
 model Entry {
-  id             String      @id
-  type           EntryType
-  localDateTime  String      // YYYY-MM-DDTHH:mm (date + time for ordering/same-day entries)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id            String      @id
+  type          EntryType
+  localDateTime String      // YYYY-MM-DDTHH:mm (date + time for ordering/same-day entries)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   // Owner — null means legacy entry (pre-auth), visible to any authenticated user
-  ownerId     String?
+  ownerId String?
 
-  // Note fields (null for check-ins)
-  title       String?
+  // Rich note body (BlockNote JSON) — optional on morning/evening; required for basic check-ins
   contentJson Json?
   plainText   String?
   wordCount   Int?
-  noteFolderId String?
-  noteFolder   NoteFolder? @relation(fields: [noteFolderId], references: [id], onDelete: SetNull)
-  projectId    String?
-  entryTags    EntryTag[]
-  accessList   AccessList[]
+  accessList  AccessList[]
 
-  // Check-in fields (null / empty for notes)
+  // Check-in fields
   mood                  Int?
   emotions              String[]     @default([])
   triggers              String[]     @default([])
@@ -64,36 +58,23 @@ model Entry {
   @@index([type])
   @@index([createdAt])
   @@index([localDateTime])
-  @@index([noteFolderId])
-  @@index([projectId])
   @@index([ownerId])
   @@map("entries")
 }
 
-model EntryTag {
-  entryId String
-  tagId   String
-  entry   Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+model AccessList {
+  id         String     @id
+  entryId    String
+  userId     String
+  permission Permission
+  createdAt  DateTime   @default(now())
 
-  @@id([entryId, tagId])
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, userId])
   @@index([entryId])
-  @@index([tagId])
-  @@map("entry_tags")
-}
-
-model NoteFolder {
-  id        String      @id
-  name      String
-  path      String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  parentId  String?
-  parent    NoteFolder? @relation("NoteFolderParent", fields: [parentId], references: [id], onDelete: Cascade)
-  children  NoteFolder[] @relation("NoteFolderParent")
-  notes     Entry[]
-
-  @@index([parentId])
-  @@map("note_folders")
+  @@index([userId])
+  @@map("access_list")
 }
 
 model Emotion {
@@ -118,21 +99,6 @@ model Trigger {
   @@unique([ownerId, label])
   @@index([ownerId])
   @@map("triggers")
-}
-
-model AccessList {
-  id         String     @id
-  entryId    String
-  userId     String
-  permission Permission
-  createdAt  DateTime   @default(now())
-
-  entry      Entry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
-
-  @@unique([entryId, userId])
-  @@index([entryId])
-  @@index([userId])
-  @@map("access_list")
 }
 
 model OutboxEvent {

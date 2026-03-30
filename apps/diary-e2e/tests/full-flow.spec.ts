@@ -17,20 +17,15 @@ test.describe("Full User Flow", () => {
 
     await selectCheckInType(page, "morning");
 
-    // Pick mood
     await page.getByRole("button", { name: "8", exact: true }).click();
 
-    // Pick emotion + trigger
     await page.getByRole("button", { name: "happy" }).click();
     await page.getByRole("button", { name: "exercise" }).click();
 
-    // Fill gratitude
     await page.locator("input[placeholder='First thing…']").first().fill("Great night sleep");
 
-    // Fill make-day-great
     await page.locator("input[placeholder='First thing…']").nth(1).fill("Finish the feature");
 
-    // Fill affirmation
     await page.getByPlaceholder("I am…").fill("I am focused and ready");
 
     await page.getByRole("button", { name: "Save" }).click();
@@ -39,48 +34,38 @@ test.describe("Full User Flow", () => {
     await expect(page.getByText("1 check-in")).toBeVisible();
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
 
-    // ── Create note ────────────────────────────────────────────────
-    await page.getByRole("button", { name: "Notes" }).click();
+    // ── Create second check-in (evening) ─────────────────────────
     await page.getByRole("link", { name: "Add new" }).click();
-    await page.waitForURL("/entries/new/note");
+    await page.waitForURL("/entries/new/checkin");
 
-    const titleInput = page.getByPlaceholder("Give your note a title…");
-    await titleInput.fill("Weekly Goals");
+    await selectCheckInType(page, "evening");
 
-    const editorSelector = ".bn-editor";
-    await page.waitForSelector(editorSelector, { timeout: 10_000 });
-    await page.click(editorSelector);
-    await page.keyboard.type("1. Exercise daily\n2. Read for 30 minutes\n3. Meditate");
+    await page.getByRole("button", { name: "6", exact: true }).click();
+    await page.getByRole("button", { name: "calm" }).click();
+    await page.getByRole("button", { name: "music" }).click();
+
+    await page.locator("input[placeholder='First highlight…']").first().fill("Good conversation");
+
+    await page.getByPlaceholder("Today I learned…").fill("Listen more than you speak");
 
     await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Note saved!")).toBeVisible({ timeout: 10_000 });
-    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
+    await page.waitForURL("/", { timeout: 10_000 });
 
-    await expect(page.getByText("1 note")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
+    await expect(page.getByText("2 check-ins")).toBeVisible();
+    await expect(page.locator("span").filter({ hasText: "🌙 Evening" })).toBeVisible();
 
-    // ── Type filter ────────────────────────────────────────────────
-    await page.getByRole("button", { name: "Check-ins" }).click();
-    await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Weekly Goals" })).not.toBeVisible();
-
-    await page.getByRole("button", { name: "Notes" }).click();
-    await expect(page.getByRole("heading", { name: "Weekly Goals" })).toBeVisible();
-
-    // ── Search ─────────────────────────────────────────────────────
-    // Switch to check-ins to search within checkin content
-    await page.getByRole("button", { name: "Check-ins" }).click();
+    // ── Search check-ins ───────────────────────────────────────────
     const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
+      "Search by content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("focused");
-    // Affirmation "I am focused and ready" matches
     await expect(page.locator("span").filter({ hasText: "🌅 Morning" })).toBeVisible();
+    await expect(page.locator("span").filter({ hasText: "🌙 Evening" })).not.toBeVisible();
 
     await searchInput.clear();
-    await expect(page.getByText("1 check-in")).toBeVisible();
+    await expect(page.getByText("2 check-ins")).toBeVisible();
 
-    // ── Open check-in for edit ─────────────────────────────────────
+    // ── Open morning check-in for edit ─────────────────────────────
     await page.getByRole("link").filter({ hasText: "🌅 Morning" }).first().click();
 
     await expect(page.getByRole("heading", { name: "Edit Check-in" })).toBeVisible();

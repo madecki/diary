@@ -46,22 +46,18 @@ async function createEveningCheckin(): Promise<string> {
   return data.id;
 }
 
-async function createNote(): Promise<string> {
-  const res = await fetch(`${API_URL}/entries/notes`, {
+async function createBasicCheckin(): Promise<string> {
+  const res = await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: AUTH_HEADERS,
     body: JSON.stringify({
-      title: "Test Note",
-      contentJson: {
-        blocks: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Note content here" }],
-          },
-        ],
-      },
-      plainText: "Note content here",
-      wordCount: 3,
+      checkInType: "basic",
+      mood: 6,
+      emotions: ["calm"],
+      triggers: ["work"],
+      contentJson: { blocks: [] },
+      plainText: "Editable basic body text.",
+      wordCount: 4,
       localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
@@ -91,15 +87,6 @@ test.describe("Edit Entry", () => {
 
     await expect(page.getByRole("heading", { name: "Edit Check-in" })).toBeVisible();
     await expect(page.getByText("Highlights of the day")).toBeVisible();
-  });
-
-  test("opens note in edit mode", async ({ page }) => {
-    const entryId = await createNote();
-
-    await page.goto(`/entries/${entryId}`);
-
-    await expect(page.getByRole("heading", { name: "Edit Note" })).toBeVisible();
-    await expect(page.getByText("Update your note")).toBeVisible();
   });
 
   test("can navigate to edit from entries list", async ({ page }) => {
@@ -161,22 +148,6 @@ test.describe("Edit Entry", () => {
 
     await page.waitForURL("/");
     await expect(page.getByText("0 check-ins")).toBeVisible();
-
-    const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
-    expect(res.status).toBe(404);
-  });
-
-  test("confirming delete removes note and redirects to home", async ({ page }) => {
-    const entryId = await createNote();
-
-    await page.goto(`/entries/${entryId}`);
-    await page.getByRole("button", { name: "Delete" }).first().click();
-
-    const modal = page.getByRole("dialog");
-    await modal.getByRole("button", { name: "Delete" }).click();
-
-    await page.waitForURL(/\?view=notes/);
-    await expect(page.getByText("0 notes")).toBeVisible();
 
     const res = await fetch(`${API_URL}/entries/${entryId}`, { headers: AUTH_HEADERS });
     expect(res.status).toBe(404);
@@ -285,16 +256,15 @@ test.describe("Edit Entry", () => {
     await expect(page.getByText("1 check-in")).toBeVisible();
   });
 
-  test("redirects to home after saving edited note", async ({ page }) => {
-    const entryId = await createNote();
+  test("redirects to home after saving edited basic check-in", async ({ page }) => {
+    const entryId = await createBasicCheckin();
 
     await page.goto(`/entries/${entryId}`);
-    await expect(page.getByRole("heading", { name: "Edit Note" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Edit Check-in" })).toBeVisible();
 
     await page.getByRole("button", { name: "Save changes" }).click();
 
-    await expect(page.getByText("Note updated!")).toBeVisible({ timeout: 10_000 });
-    await page.waitForURL(/\?view=notes/, { timeout: 10_000 });
-    await expect(page.getByText("1 note")).toBeVisible();
+    await page.waitForURL("/", { timeout: 10_000 });
+    await expect(page.getByText("1 check-in")).toBeVisible();
   });
 });

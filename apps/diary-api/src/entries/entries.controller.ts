@@ -1,12 +1,4 @@
-import {
-  BrowseNotesQuerySchema,
-  CreateCheckinSchema,
-  CreateNoteFolderSchema,
-  CreateNoteSchema,
-  DeleteNoteFolderQuerySchema,
-  ListEntriesQuerySchema,
-  RenameNoteFolderSchema,
-} from "@diary/shared";
+import { CreateCheckinSchema, ListEntriesQuerySchema } from "@diary/shared";
 import {
   Body,
   Controller,
@@ -32,46 +24,10 @@ export class EntriesController {
     return this.entries.createCheckin(input, actor.userId);
   }
 
-  @Post("notes")
-  createNote(@Body() body: unknown, @Actor() actor: { userId: string }) {
-    const input = CreateNoteSchema.parse(body);
-    return this.entries.createNote(input, actor.userId);
-  }
-
   @Get()
   listEntries(@Query() query: unknown, @Actor() actor: { userId: string }) {
     const input = ListEntriesQuerySchema.parse(query);
     return this.entries.listEntries(input, actor.userId);
-  }
-
-  @Get("note-folders")
-  listNoteFolders() {
-    return this.entries.listNoteFolders();
-  }
-
-  @Get("notes/browse")
-  browseNotes(@Query() query: unknown) {
-    const input = BrowseNotesQuerySchema.parse(query);
-    return this.entries.browseNotes(input.path);
-  }
-
-  @Post("note-folders")
-  createNoteFolder(@Body() body: unknown) {
-    const input = CreateNoteFolderSchema.parse(body);
-    return this.entries.createNoteFolder(input);
-  }
-
-  @Patch("note-folders")
-  renameNoteFolder(@Body() body: unknown) {
-    const input = RenameNoteFolderSchema.parse(body);
-    return this.entries.renameNoteFolder(input);
-  }
-
-  @Delete("note-folders")
-  @HttpCode(204)
-  async deleteNoteFolder(@Query() query: unknown) {
-    const input = DeleteNoteFolderQuerySchema.parse(query);
-    await this.entries.deleteNoteFolder(input.path, input.force);
   }
 
   @Get(":id")

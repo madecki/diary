@@ -18,5 +18,4 @@ export const NATS_SUBJECTS = [
 
 export const ENTRY_TYPES = {
   CHECKIN: "checkin",
-  NOTE: "note",
 } as const;

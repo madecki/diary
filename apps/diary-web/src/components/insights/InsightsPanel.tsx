@@ -26,7 +26,9 @@ export function InsightsPanel() {
   const [data, setData] = useState<LatestInsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [timedOut, setTimedOut] = useState(false);
-  const [expectingRegeneration, setExpectingRegeneration] = useState(peekDiaryInsightsRegenerationPending);
+  const [expectingRegeneration, setExpectingRegeneration] = useState(
+    peekDiaryInsightsRegenerationPending,
+  );
   const stableDaily = useRef<InsightResponse | null>(null);
   const stableWeekly = useRef<InsightResponse | null>(null);
   const pollingStartedAt = useRef<number | null>(null);

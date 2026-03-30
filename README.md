@@ -48,7 +48,7 @@ diary/
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16, React 19, Tailwind CSS 4, Tiptap (ProseMirror) |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, BlockNote |
 | Backend | NestJS 11, Fastify 5 |
 | Database | PostgreSQL 17, Prisma 7 |
 | Messaging | NATS JetStream 2.12 |
@@ -104,33 +104,22 @@ pnpm db:generate  # Regenerate Prisma client
 
 ## Domain Model
 
-Two entry types:
+Entries are **check-ins** only (`EntryType.checkin`):
 
-### Check-in
-- **mood**: integer 1-10 (required)
-- **content**: WYSIWYG via Tiptap (stored as JSON)
-- **emotions**: 1-5 tags (required)
-- **triggers**: 1-5 tags (required)
-- **timeOfDay**: optional "morning" | "evening"
+- **mood**: integer 1–10 (required)
+- **emotions** / **triggers**: 1–5 labels each (required)
+- **checkInType**: `morning` | `evening` | `basic` — type-specific structured fields plus optional rich **note** (`contentJson`, `plainText`, `wordCount`) on morning/evening; required note body for basic
 
-### Note
-- **content**: WYSIWYG via Tiptap (stored as JSON)
-- **title**: optional
-
-Both types persist:
-- `contentJson` — Tiptap document JSON (canonical)
-- `plainText` — derived plain text for previews
-- `wordCount` — derived word count for analytics
+Rich text uses **BlockNote** (stored as `contentJson`); `plainText` and `wordCount` support search and backups.
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/entries/checkins` | Create a check-in |
-| `POST` | `/entries/notes` | Create a note |
-| `GET` | `/entries` | List entries (cursor pagination) |
+| `GET` | `/entries` | List check-ins (cursor pagination) |
 | `GET` | `/entries/:id` | Get single entry |
-| `PATCH` | `/entries/:id` | Update entry (type cannot change) |
+| `PATCH` | `/entries/:id` | Update check-in |
 | `GET` | `/events/outbox` | Debug: list outbox events |
 | `POST` | `/events/replay` | Admin: re-queue events for publishing |
 
@@ -138,7 +127,6 @@ Both types persist:
 
 - `cursor` — entry ID for cursor-based pagination (ULID, time-ordered)
 - `limit` — items per page (1-100, default 20)
-- `type` — filter by `checkin` or `note`
 
 ### Replay Endpoint (POST /events/replay)
 
@@ -235,7 +223,7 @@ Configuration (env vars):
 | `Nats-Msg-Id` | eventId (ULID) — enables JetStream dedup |
 | `diary-event-version` | `1` |
 | `diary-aggregate-id` | entry ID |
-| `diary-aggregate-type` | `checkin` or `note` |
+| `diary-aggregate-type` | `checkin` |
 
 ## MFE (Micro-Frontend) Notes
 
@@ -266,7 +254,7 @@ pnpm db:generate
 
 ## Design Decisions
 
-1. **Single-table inheritance** for entries — check-ins and notes share one table with nullable type-specific columns. Simpler queries and pagination.
+1. **Single entry type** — the `entries` table stores check-ins only; standalone notes and note folders were removed in favour of a separate Notepad app.
 
 2. **ULID for IDs** — Time-sortable, globally unique, used for cursor pagination. No sequential integer exposure.
 

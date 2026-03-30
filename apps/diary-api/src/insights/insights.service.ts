@@ -3,13 +3,13 @@ import type { Entry, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { type InsightType, InsightsRepository } from "./insights.repository.js";
 import { LlmClient } from "./llm-client.js";
-import { type UserContextResponse, SettingsClient } from "./settings-client.js";
 import {
   type InsightPromptParts,
   buildDailyPrompt,
   buildWeeklyPrompt,
   hashInsightRequest,
 } from "./prompt-templates.js";
+import { SettingsClient, type UserContextResponse } from "./settings-client.js";
 
 const DEFAULT_MODEL = "qwen3.5:27b";
 const DEFAULT_DEBOUNCE_MS = 5000;

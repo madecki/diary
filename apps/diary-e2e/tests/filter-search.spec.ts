@@ -49,22 +49,18 @@ async function createEveningCheckin(
   });
 }
 
-async function createNote(title: string, content: string): Promise<void> {
-  await fetch(`${API_URL}/entries/notes`, {
+async function createBasicCheckin(plainText: string): Promise<void> {
+  await fetch(`${API_URL}/entries/checkins`, {
     method: "POST",
     headers: AUTH_HEADERS,
     body: JSON.stringify({
-      title,
-      contentJson: {
-        blocks: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: content }],
-          },
-        ],
-      },
-      plainText: content,
-      wordCount: content.split(/\s+/).length,
+      checkInType: "basic",
+      mood: 6,
+      emotions: ["focused"],
+      triggers: ["deep work"],
+      contentJson: { blocks: [] },
+      plainText,
+      wordCount: plainText.split(/\s+/).filter(Boolean).length,
       localDateTime: new Date().toISOString().slice(0, 16),
     }),
   });
@@ -83,111 +79,76 @@ test.describe("Filter and Search", () => {
       ["Completed the sprint review", "", ""],
       "Time management is essential for success",
     );
-    await createNote("Project Ideas", "Build a new app for journaling");
-    await createNote("Book Notes", "Read about mindfulness and meditation");
+    await createBasicCheckin("Build a new app for journaling");
+    await createBasicCheckin("Read about mindfulness and meditation");
   });
 
-  test("shows check-ins by default", async ({ page }) => {
+  test("shows check-ins on home", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("2 check-ins")).toBeVisible();
+    await expect(page.getByText("4 check-ins")).toBeVisible();
 
-    const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
-    await expect(checkinBadges).toHaveCount(2);
-  });
-
-  test("filters by check-ins only", async ({ page }) => {
-    await page.goto("/");
-
-    const checkinBadges = page.locator("span").filter({ hasText: /^Check-in$/ });
-    await expect(checkinBadges).toHaveCount(2);
-  });
-
-  test("filters by notes only", async ({ page }) => {
-    await page.goto("/");
-
-    await page.getByRole("button", { name: "Notes" }).click();
-
-    const shortNoteBadges = page.locator("span").filter({ hasText: /^Note$/ });
-    await expect(shortNoteBadges).toHaveCount(2);
+    const morningBadges = page.locator("span").filter({ hasText: "🌅 Morning" });
+    await expect(morningBadges).toHaveCount(1);
   });
 
   test("searches by gratitude item", async ({ page }) => {
     await page.goto("/");
 
     const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
+      "Search by content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("energy");
 
     await expect(page.getByText("I am productive and motivated")).toBeVisible();
     await expect(page.getByText("Completed the sprint review")).not.toBeVisible();
-    await expect(page.getByText("Project Ideas")).not.toBeVisible();
+    await expect(page.getByText("Build a new app for journaling")).not.toBeVisible();
   });
 
   test("searches by daily affirmation", async ({ page }) => {
     await page.goto("/");
 
     const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
+      "Search by content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("productive");
 
-    const morningCard = page
-      .locator("span")
-      .filter({ hasText: /^Check-in$/ })
-      .first();
-    await expect(morningCard).toBeVisible();
-    await expect(page.getByText("Project Ideas")).not.toBeVisible();
+    await expect(page.getByText("I am productive and motivated")).toBeVisible();
+    await expect(page.getByText("mindfulness")).not.toBeVisible();
   });
 
   test("searches by what I learned today", async ({ page }) => {
     await page.goto("/");
 
     const searchInput = page.getByPlaceholder(
-      "Search by title, content, emotions, triggers or affirmations…",
+      "Search by content, emotions, triggers or affirmations…",
     );
     await searchInput.fill("management");
 
-    const eveningCard = page
-      .locator("span")
-      .filter({ hasText: /^Check-in$/ })
-      .first();
-    await expect(eveningCard).toBeVisible();
-    await expect(page.getByText("Book Notes")).not.toBeVisible();
+    await expect(page.getByText("Time management is essential for success")).toBeVisible();
+    await expect(page.getByText("mindfulness")).not.toBeVisible();
   });
 
-  test("searches by title", async ({ page }) => {
+  test("searches basic check-in body text", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Notes" }).click();
-    const searchInput = page.getByPlaceholder("Search notes by title and content…");
-    await searchInput.fill("Project");
+    const searchInput = page.getByPlaceholder(
+      "Search by content, emotions, triggers or affirmations…",
+    );
+    await searchInput.fill("mindfulness");
 
-    await expect(page.getByRole("heading", { name: "Project Ideas" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Book Notes" })).not.toBeVisible();
+    await expect(page.getByText("Read about mindfulness and meditation")).toBeVisible();
+    await expect(page.getByText("Build a new app for journaling")).not.toBeVisible();
   });
 
   test("shows no results message when search has no matches", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Notes" }).click();
-    const searchInput = page.getByPlaceholder("Search notes by title and content…");
+    const searchInput = page.getByPlaceholder(
+      "Search by content, emotions, triggers or affirmations…",
+    );
     await searchInput.fill("nonexistent query xyz123");
 
-    await expect(page.getByText("No notes match your search in this folder.")).toBeVisible();
-  });
-
-  test("combines filter and search", async ({ page }) => {
-    await page.goto("/");
-
-    await page.getByRole("button", { name: "Notes" }).click();
-
-    // In notes view the search placeholder differs from the all-entries view
-    const searchInput = page.getByPlaceholder("Search notes by title and content…");
-    await searchInput.fill("mindfulness");
-
-    await expect(page.getByRole("heading", { name: "Book Notes" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Project Ideas" })).not.toBeVisible();
+    await expect(page.getByText("No entries match your search.")).toBeVisible();
   });
 });

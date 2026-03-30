@@ -338,3 +338,10 @@ test.describe("Create Check-in", () => {
     expect(count).toBe(1);
   });
 });
+
+test.describe("Legacy routes", () => {
+  test("/entries/new/short-note redirects to new check-in", async ({ page }) => {
+    await page.goto("/entries/new/short-note");
+    await page.waitForURL("/entries/new/checkin");
+  });
+});

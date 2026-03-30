@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   CreateCheckinSchema,
-  CreateNoteFolderSchema,
-  CreateNoteSchema,
   DiaryEventPayloadSchema,
   EntryResponseSchema,
   ListEntriesQuerySchema,
   OutboxQuerySchema,
   ReplayBodySchema,
   UpdateCheckinSchema,
-  UpdateNoteSchema,
 } from "../index.js";
 
 describe("CreateCheckinSchema", () => {
@@ -151,27 +148,6 @@ describe("CreateCheckinSchema", () => {
   });
 });
 
-describe("CreateNoteSchema", () => {
-  const valid = {
-    contentJson: { type: "doc", content: [] },
-    plainText: "Quick thought",
-    wordCount: 2,
-  };
-
-  it("accepts valid note", () => {
-    expect(CreateNoteSchema.parse(valid)).toMatchObject(valid);
-  });
-
-  it("accepts optional title", () => {
-    const result = CreateNoteSchema.parse({ ...valid, title: "My Note" });
-    expect(result.title).toBe("My Note");
-  });
-
-  it("rejects title longer than 200 characters", () => {
-    expect(() => CreateNoteSchema.parse({ ...valid, title: "x".repeat(201) })).toThrow();
-  });
-});
-
 describe("UpdateCheckinSchema", () => {
   it("accepts partial morning update with only affirmation", () => {
     const result = UpdateCheckinSchema.parse({
@@ -236,18 +212,6 @@ describe("UpdateCheckinSchema", () => {
   });
 });
 
-describe("UpdateNoteSchema", () => {
-  it("accepts partial update", () => {
-    const result = UpdateNoteSchema.parse({ title: "Updated" });
-    expect(result.title).toBe("Updated");
-  });
-
-  it("allows nullable title", () => {
-    const result = UpdateNoteSchema.parse({ title: null });
-    expect(result.title).toBeNull();
-  });
-});
-
 describe("ListEntriesQuerySchema", () => {
   it("applies default limit", () => {
     const result = ListEntriesQuerySchema.parse({});
@@ -259,13 +223,9 @@ describe("ListEntriesQuerySchema", () => {
     expect(result.limit).toBe(50);
   });
 
-  it("accepts type filter", () => {
-    const result = ListEntriesQuerySchema.parse({ type: "checkin" });
-    expect(result.type).toBe("checkin");
-  });
-
-  it("rejects invalid type", () => {
-    expect(() => ListEntriesQuerySchema.parse({ type: "invalid" })).toThrow();
+  it("accepts optional cursor", () => {
+    const result = ListEntriesQuerySchema.parse({ cursor: "01ARZ3NDEKTSV4RRFFQ69G5FAX" });
+    expect(result.cursor).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAX");
   });
 });
 
@@ -363,57 +323,13 @@ describe("EntryResponseSchema", () => {
       dailyAffirmation: "I am capable",
       highlightsOfTheDay: [],
       whatDidILearnToday: null,
-      title: null,
       contentJson: null,
       plainText: null,
       wordCount: null,
-      noteFolderId: null,
-      noteFolderPath: null,
-      projectId: null,
-      tagIds: [],
       localDateTime: "2026-02-20T09:30",
       createdAt: "2026-02-20T10:00:00.000Z",
       updatedAt: "2026-02-20T10:00:00.000Z",
     };
     expect(EntryResponseSchema.parse(entry)).toMatchObject(entry);
-  });
-
-  it("accepts a note response", () => {
-    const entry = {
-      id: "01ARZ",
-      type: "note",
-      mood: null,
-      emotions: [],
-      triggers: [],
-      checkInType: null,
-      whatImGratefulFor: [],
-      whatWouldMakeDayGreat: [],
-      dailyAffirmation: null,
-      highlightsOfTheDay: [],
-      whatDidILearnToday: null,
-      contentJson: {},
-      plainText: "test",
-      wordCount: 1,
-      title: "My Note",
-      noteFolderId: null,
-      noteFolderPath: null,
-      projectId: null,
-      tagIds: [],
-      localDateTime: "2026-02-20T09:30",
-      createdAt: "2026-02-20T10:00:00.000Z",
-      updatedAt: "2026-02-20T10:00:00.000Z",
-    };
-    expect(EntryResponseSchema.parse(entry)).toMatchObject(entry);
-  });
-});
-
-describe("CreateNoteFolderSchema", () => {
-  it("accepts nested folder path", () => {
-    const result = CreateNoteFolderSchema.parse({ path: "work/projects/2026" });
-    expect(result.path).toBe("work/projects/2026");
-  });
-
-  it("rejects blank path", () => {
-    expect(() => CreateNoteFolderSchema.parse({ path: "  " })).toThrow();
   });
 });

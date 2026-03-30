@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckinForm } from "@/components/forms/CheckinForm";
-import { NoteForm } from "@/components/forms/ShortNoteForm";
 import { fetchEntry } from "@/lib/api";
 import type { EntryResponse } from "@diary/shared";
 import { Button, Container, Heading, Spinner, Stack, Text } from "@madecki/ui";
@@ -57,9 +56,5 @@ export default function EntryPage() {
   if (notFound) return <NotFoundFallback />;
   if (!entry) return <LoadingFallback />;
 
-  if (entry.type === "checkin") {
-    return <CheckinForm entry={entry} />;
-  }
-
-  return <NoteForm entry={entry} />;
+  return <CheckinForm entry={entry} />;
 }

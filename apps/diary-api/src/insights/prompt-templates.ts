@@ -32,15 +32,7 @@ function loadWeeklyTemplate(): string {
   return weeklyTemplate;
 }
 
-const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function formatContextDate(d: Date): { weekday: string; date: string } {
   const weekday = WEEKDAYS[d.getUTCDay()] ?? "Monday";
@@ -88,14 +80,6 @@ function entryToCheckInPayload(entry: Entry): CheckInPayload | null {
     note: truncateNote(entry.plainText ?? "", MAX_NOTE_CHARS),
     created_at: entry.localDateTime,
   };
-}
-
-function sortByLocalDateTimeAsc(a: Entry, b: Entry): number {
-  return a.localDateTime.localeCompare(b.localDateTime);
-}
-
-function sortByLocalDateTimeDesc(a: Entry, b: Entry): number {
-  return b.localDateTime.localeCompare(a.localDateTime);
 }
 
 function sortCheckInsAsc(a: CheckInPayload, b: CheckInPayload): number {

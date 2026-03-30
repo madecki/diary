@@ -22,7 +22,7 @@ async function main() {
 
   let count = 0;
   for (const entry of entries) {
-    const markdown = entry.type === "checkin" ? renderCheckin(entry) : renderNote(entry);
+    const markdown = renderCheckin(entry);
     await writeEntryFile(entry.localDateTime, entry.type, entry.id, markdown);
     count++;
   }
@@ -38,22 +38,6 @@ async function writeEntryFile(localDateTime: string, type: string, id: string, c
   const safeDateTime = localDateTime.replace(":", "-");
   const filename = `${safeDateTime}_${type}_${id}.md`;
   await writeFile(join(dir, filename), content, "utf-8");
-}
-
-function renderNote(entry: Entry): string {
-  const title = entry.title ?? "Untitled";
-  const plainText = entry.plainText ?? "";
-  const frontmatter = buildFrontmatter({
-    id: entry.id,
-    type: "note",
-    date: entry.localDateTime,
-    title,
-    folder_id: entry.noteFolderId,
-    word_count: entry.wordCount,
-    created_at: entry.createdAt.toISOString(),
-    updated_at: entry.updatedAt.toISOString(),
-  });
-  return `${frontmatter}\n# ${title}\n\n${plainText}\n`;
 }
 
 function renderCheckin(entry: Entry): string {
@@ -115,8 +99,6 @@ function renderCheckin(entry: Entry): string {
 
   return sections.join("\n\n") + "\n";
 }
-
-// ─── Minimal YAML frontmatter builder ─────────────────────────────────────────
 
 type YamlValue = string | number | null | undefined | string[];
 

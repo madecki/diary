@@ -32,8 +32,12 @@ async function waitForBackupFile(
 
 async function ensureBackupPipelineReady(request: APIRequestContext): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await request.post(`${API_URL}/entries/notes`, {
+    const res = await request.post(`${API_URL}/entries/checkins`, {
       data: {
+        checkInType: "basic",
+        mood: 5,
+        emotions: ["calm"],
+        triggers: ["work"],
         contentJson: { blocks: [] },
         plainText: `Warmup ${Date.now()}`,
         wordCount: 2,
@@ -47,7 +51,7 @@ async function ensureBackupPipelineReady(request: APIRequestContext): Promise<vo
     }
 
     const entry = await res.json();
-    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 10_000);
+    const filePath = await waitForBackupFile(entry.id, "checkin", entry.localDateTime, 10_000);
     if (filePath) return;
   }
 
@@ -59,33 +63,6 @@ test.describe("Markdown Backup", () => {
     await resetDatabase();
     await ensureBackupPipelineReady(request);
     await resetDatabase();
-  });
-
-  test("creates a .md backup file when a note is saved", async ({ request }) => {
-    const res = await request.post(`${API_URL}/entries/notes`, {
-      data: {
-        title: "Backup Test Note",
-        contentJson: { blocks: [] },
-        plainText: "This should appear in the backup file.",
-        wordCount: 7,
-        localDateTime: TODAY_DATETIME,
-      },
-    });
-
-    expect(res.status()).toBe(201);
-    const entry = await res.json();
-
-    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime);
-    expect(filePath).not.toBeNull();
-
-    const content = readFileSync(filePath as string, "utf-8");
-
-    expect(content).toContain(`id: ${entry.id}`);
-    expect(content).toContain("type: note");
-    expect(content).toContain(entry.localDateTime);
-    expect(content).toContain("title: Backup Test Note");
-    expect(content).toContain("# Backup Test Note");
-    expect(content).toContain("This should appear in the backup file.");
   });
 
   test("creates a .md backup file when a check-in is saved", async ({ request }) => {
@@ -145,7 +122,6 @@ test.describe("Markdown Backup", () => {
     });
     expect(update.status()).toBe(200);
 
-    // Poll until the file reflects the updated content
     const safeDateTime = entry.localDateTime.replace(":", "-");
     const deadline = Date.now() + 10_000;
     let content = "";
@@ -163,8 +139,12 @@ test.describe("Markdown Backup", () => {
   });
 
   test("moves backup to _deleted/ when entry is deleted", async ({ request }) => {
-    const create = await request.post(`${API_URL}/entries/notes`, {
+    const create = await request.post(`${API_URL}/entries/checkins`, {
       data: {
+        checkInType: "basic",
+        mood: 5,
+        emotions: ["calm"],
+        triggers: ["work"],
         contentJson: { blocks: [] },
         plainText: "To be deleted.",
         wordCount: 3,
@@ -173,17 +153,14 @@ test.describe("Markdown Backup", () => {
     });
     const entry = await create.json();
 
-    // Wait for initial backup
-    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 30_000);
+    const filePath = await waitForBackupFile(entry.id, "checkin", entry.localDateTime, 30_000);
     expect(filePath).not.toBeNull();
 
-    // Delete the entry
     const del = await request.delete(`${API_URL}/entries/${entry.id}`);
     expect(del.status()).toBe(204);
 
-    // Wait for file to move to _deleted/
     const safeDateTime = entry.localDateTime.replace(":", "-");
-    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${safeDateTime}_note_${entry.id}.md`);
+    const deletedPath = join(E2E_BACKUP_DIR, "_deleted", `${safeDateTime}_checkin_${entry.id}.md`);
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       if (existsSync(deletedPath)) break;
@@ -191,13 +168,16 @@ test.describe("Markdown Backup", () => {
     }
 
     expect(existsSync(deletedPath)).toBe(true);
-    // Original location should no longer exist
     expect(existsSync(filePath as string)).toBe(false);
   });
 
   test("backup dir is organised by year/month", async ({ request }) => {
-    const res = await request.post(`${API_URL}/entries/notes`, {
+    const res = await request.post(`${API_URL}/entries/checkins`, {
       data: {
+        checkInType: "basic",
+        mood: 5,
+        emotions: ["calm"],
+        triggers: ["work"],
         contentJson: { blocks: [] },
         plainText: "Directory structure test.",
         wordCount: 3,
@@ -206,7 +186,7 @@ test.describe("Markdown Backup", () => {
     });
     const entry = await res.json();
 
-    const filePath = await waitForBackupFile(entry.id, "note", entry.localDateTime, 30_000);
+    const filePath = await waitForBackupFile(entry.id, "checkin", entry.localDateTime, 30_000);
     expect(filePath).not.toBeNull();
 
     const dir = join(E2E_BACKUP_DIR, year, month);

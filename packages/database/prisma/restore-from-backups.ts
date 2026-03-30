@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { type CheckInType, type EntryType, type Prisma, PrismaClient } from "@prisma/client";
+import { type CheckInType, type Prisma, PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -16,8 +16,6 @@ const includeDeleted = process.env.RESTORE_INCLUDE_DELETED === "true";
 
 const adapter = new PrismaPg({ connectionString: url });
 const prisma = new PrismaClient({ adapter });
-
-const folderCache = new Map<string, string>();
 
 async function main() {
   const files = await collectMarkdownFiles(backupDir);
@@ -37,7 +35,11 @@ async function main() {
     }
 
     const typeRaw = String(parsed.frontmatter["type"] ?? "");
-    const type: EntryType = typeRaw === "checkin" ? "checkin" : "note";
+    if (typeRaw !== "checkin") {
+      skipped++;
+      continue;
+    }
+
     const id = String(parsed.frontmatter["id"] ?? "").trim();
     if (!id) {
       skipped++;
@@ -49,45 +51,43 @@ async function main() {
       skipped++;
       continue;
     }
-    // Support both YYYY-MM-DD (legacy) and YYYY-MM-DDTHH:mm
     const localDateTime = dateRaw.includes("T") ? dateRaw : `${dateRaw}T00:00`;
 
     const createdAt = toDate(String(parsed.frontmatter["created_at"] ?? ""));
     const updatedAt = toDate(String(parsed.frontmatter["updated_at"] ?? ""));
-    const noteFolderPath = toStringOrNull(parsed.frontmatter["folder_path"]);
-    const noteFolderId = type === "note" ? await ensureFolderPath(noteFolderPath) : null;
+
+    const checkInTypeRaw = toStringOrNull(parsed.frontmatter["check_in_type"]);
+    const checkInType: CheckInType | null =
+      checkInTypeRaw === "morning" || checkInTypeRaw === "evening" || checkInTypeRaw === "basic"
+        ? checkInTypeRaw
+        : null;
 
     const baseData: Prisma.EntryUncheckedCreateInput = {
       id,
-      type,
+      type: "checkin",
       localDateTime,
       createdAt: createdAt ?? new Date(),
       updatedAt: updatedAt ?? new Date(),
-      title: null,
       contentJson: null,
       plainText: null,
       wordCount: null,
-      noteFolderId,
-      mood: null,
-      emotions: [],
-      triggers: [],
-      checkInType: null,
-      whatImGratefulFor: [],
-      whatWouldMakeDayGreat: [],
-      dailyAffirmation: null,
-      highlightsOfTheDay: [],
-      whatDidILearnToday: null,
+      mood: toIntOrNull(parsed.frontmatter["mood"]),
+      emotions: toStringArray(parsed.frontmatter["emotions"]),
+      triggers: toStringArray(parsed.frontmatter["triggers"]),
+      checkInType,
+      whatImGratefulFor: extractListSection(parsed.body, "What I'm Grateful For"),
+      whatWouldMakeDayGreat: extractListSection(parsed.body, "What Would Make Today Great"),
+      dailyAffirmation: extractTextSection(parsed.body, "Daily Affirmation"),
+      highlightsOfTheDay: extractListSection(parsed.body, "Highlights of the Day"),
+      whatDidILearnToday: extractTextSection(parsed.body, "What Did I Learn Today"),
     };
 
-    if (type === "note") {
-      const title = toStringOrNull(parsed.frontmatter["title"]) ?? "Untitled";
-      const plainText = extractNotePlainText(parsed.body);
-      const wordCount = toIntOrNull(parsed.frontmatter["word_count"]) ?? countWords(plainText);
-      baseData.title = title;
-      baseData.plainText = plainText;
-      baseData.wordCount = wordCount;
+    const noteSection = extractMultilineSection(parsed.body, "Note");
+    if (noteSection) {
+      baseData.plainText = noteSection;
+      baseData.wordCount = countWords(noteSection);
       baseData.contentJson = {
-        blocks: plainText
+        blocks: noteSection
           .split("\n")
           .filter((line) => line.trim().length > 0)
           .map((line) => ({
@@ -95,37 +95,6 @@ async function main() {
             content: [{ type: "text", text: line }],
           })),
       } as Prisma.InputJsonValue;
-    } else {
-      const checkInTypeRaw = toStringOrNull(parsed.frontmatter["check_in_type"]);
-      baseData.checkInType =
-        checkInTypeRaw === "morning" || checkInTypeRaw === "evening" || checkInTypeRaw === "basic"
-          ? (checkInTypeRaw as CheckInType)
-          : null;
-      baseData.mood = toIntOrNull(parsed.frontmatter["mood"]);
-      baseData.emotions = toStringArray(parsed.frontmatter["emotions"]);
-      baseData.triggers = toStringArray(parsed.frontmatter["triggers"]);
-      baseData.whatImGratefulFor = extractListSection(parsed.body, "What I'm Grateful For");
-      baseData.whatWouldMakeDayGreat = extractListSection(
-        parsed.body,
-        "What Would Make Today Great",
-      );
-      baseData.dailyAffirmation = extractTextSection(parsed.body, "Daily Affirmation");
-      baseData.highlightsOfTheDay = extractListSection(parsed.body, "Highlights of the Day");
-      baseData.whatDidILearnToday = extractTextSection(parsed.body, "What Did I Learn Today");
-      const noteSection = extractMultilineSection(parsed.body, "Note");
-      if (noteSection) {
-        baseData.plainText = noteSection;
-        baseData.wordCount = countWords(noteSection);
-        baseData.contentJson = {
-          blocks: noteSection
-            .split("\n")
-            .filter((line) => line.trim().length > 0)
-            .map((line) => ({
-              type: "paragraph",
-              content: [{ type: "text", text: line }],
-            })),
-        } as Prisma.InputJsonValue;
-      }
     }
 
     await prisma.entry.upsert({
@@ -139,44 +108,6 @@ async function main() {
   console.log(
     `Restore finished. Restored ${restored} entries, skipped ${skipped}. Source: ${relative(process.cwd(), backupDir)}`,
   );
-}
-
-async function ensureFolderPath(path: string | null): Promise<string | null> {
-  if (!path) return null;
-  if (folderCache.has(path)) return folderCache.get(path)!;
-
-  let parentId: string | null = null;
-  let currentPath = "";
-
-  for (const segment of path
-    .split("/")
-    .map((s) => s.trim())
-    .filter(Boolean)) {
-    currentPath = currentPath ? `${currentPath}/${segment}` : segment;
-    const cachedId = folderCache.get(currentPath);
-    if (cachedId) {
-      parentId = cachedId;
-      continue;
-    }
-    const existing = await prisma.noteFolder.findUnique({ where: { path: currentPath } });
-    if (existing) {
-      folderCache.set(currentPath, existing.id);
-      parentId = existing.id;
-      continue;
-    }
-    const created = await prisma.noteFolder.create({
-      data: {
-        id: `fld_${cryptoRandom(26)}`,
-        name: segment,
-        path: currentPath,
-        parentId,
-      },
-    });
-    folderCache.set(currentPath, created.id);
-    parentId = created.id;
-  }
-
-  return folderCache.get(path) ?? null;
 }
 
 async function collectMarkdownFiles(root: string): Promise<string[]> {
@@ -236,16 +167,6 @@ function parseBackupFile(
   };
 }
 
-function extractNotePlainText(body: string): string {
-  const lines = body.split("\n");
-  const start = lines.findIndex((line) => line.startsWith("# "));
-  if (start === -1) return body.trim();
-  return lines
-    .slice(start + 1)
-    .join("\n")
-    .trim();
-}
-
 function extractListSection(body: string, heading: string): string[] {
   const lines = body.split("\n");
   const idx = lines.findIndex((line) => line.trim() === `## ${heading}`);
@@ -273,7 +194,6 @@ function extractTextSection(body: string, heading: string): string | null {
   return out.length > 0 ? out.join("\n").trim() : null;
 }
 
-/** Like extractTextSection but keeps blank lines (for optional check-in Note body). */
 function extractMultilineSection(body: string, heading: string): string | null {
   const lines = body.split("\n");
   const idx = lines.findIndex((line) => line.trim() === `## ${heading}`);
@@ -303,12 +223,6 @@ function toDate(value: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function toStringOrNull(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  const s = String(value).trim();
-  return s.length > 0 ? s : null;
-}
-
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -318,15 +232,6 @@ function unquote(value: string): string {
     return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
   return value;
-}
-
-function cryptoRandom(length: number): string {
-  const chars = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)] ?? "0";
-  }
-  return out;
 }
 
 main()
